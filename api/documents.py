@@ -26,5 +26,36 @@ async def upload_document(
     document = create_document(
         db=db,
         claim_id=claim_id,
-            
+        file_name=file.filename,
+        mime_type=file.content_type,
+        file_bytes=file_type
     )
+    
+    return document
+
+@router.post("/documents/{document_id}/extract", status_code=202)
+async def extract_document(
+    document_id: str,
+    db: Session = Depends(get_db)
+):
+    from services.document_service import mark_document_for_extraction
+    from services.extraction_service import run_extraction_pipeline
+    
+    try:
+        # Mark for extraction
+        mark_document_for_extraction(db, document_id)
+        
+        # Run extraction (synchronously for now as per instructions, but endpoint is async)
+        # In a real system, this would be a background task
+        result = run_extraction_pipeline(db, document_id)
+        
+        return {
+            "message": "Extraction completed",
+            "document_id": document_id,
+            "confidence": result.confidence,
+            "status": result.document.claim.current_state
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

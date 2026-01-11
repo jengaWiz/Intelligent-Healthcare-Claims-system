@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import Column, String, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from database.base import Base
 
@@ -25,3 +26,9 @@ class Document(Base):
     document_state = Column(String(50), nullable=False, default="UPLOADED")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    extraction_result = relationship(
+    "ExtractionResult",
+    back_populates="document",
+    uselist=False
+)

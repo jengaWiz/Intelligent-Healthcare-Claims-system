@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from models.document import Document
 from services.storage_service import save_file
 from services.document_state_service import validate_document_transition
+from models.claim import Claim 
 
 def create_document(
         db: Session,
@@ -37,5 +38,31 @@ def update_document_state(db, document, next_state: str):
 
     return document
 
-def mark_document_for_extraction(db, document):
-    return update_document_state(db, document, "EXTRACTION_PENDING")
+def mark_document_for_extraction(db: Session, document_id: int) -> Document:
+    
+    document = (
+        db.query(Document)
+        .filter(Document.id == document_id)
+        .first()
+    )
+
+    if not document:
+        raise ValueError("Document not found")
+
+    if document.document_state != "UPLOADED":
+        raise ValueError(
+            f"Document cannot be extracted from state {document.document_state}"
+        )
+
+    # Update document state
+    document.document_state = "EXTRACTION_PENDING"
+
+    # Update claim state if needed
+    claim = document.claim
+    if claim.current_state == "VALIDATED":
+        claim.current_state = "EXTRACTION_PENDING"
+
+    db.commit()
+    db.refresh(document)
+
+    return document
