@@ -19,9 +19,11 @@ claim/document updates atomically after checking lease ownership. See the
 
 Use Python 3.12, Pydantic 2 with pydantic-settings, SQLAlchemy 2 with psycopg 3,
 Alembic, FastAPI, LangGraph/LangChain adapters, and Azure Document Intelligence.
-The setup ticket resolves compatible provider releases, pins direct versions,
-and commits uv.lock as the authoritative exact transitive dependency set. Do not
-claim a compatible pin set before resolution and tests succeed. Use provider-
+The setup ticket pins direct releases in pyproject.toml and commits uv.lock as
+the authoritative exact transitive dependency set. The initial resolved set uses
+Pydantic 2.13.5, SQLAlchemy 2.0.54, Azure Document Intelligence 1.0.2,
+LangChain Google 4.4.0/OpenAI 1.6.7, and LangGraph 1.2.12. Compatibility is verified
+by credential-free tests; live account/model access remains an opt-in check. Use provider-
 configurable models rather than the existing stale hardcoded Gemini default.
 Application code owns gates, retries, routing, storage, and state; agents only
 produce bounded typed data. A provider key is required only when its integration
