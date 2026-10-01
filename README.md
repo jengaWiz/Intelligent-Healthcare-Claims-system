@@ -86,11 +86,11 @@ Implemented components demonstrate the extraction and validation design, but the
 
 - Add an application entry point and database migrations.
 - Complete the normalized result pipeline and durable job integration; repaired ORM models and [versioned migrations](docs/database.md) provide the persistence foundation.
-- Update schema test imports from `models.claim_data` to the existing `schema.claim_data` module.
+- Expand synthetic end-to-end and live-provider evaluation beyond the passing unit/persistence suite.
 - Connect normalization and validation to the extraction workflow and complete review handling.
 - Validate provider model configuration and Azure API compatibility with pinned dependencies.
 
-The existing tests describe intended behavior; a passing test suite and measured extraction accuracy are not claimed.
+The current unit and PostgreSQL persistence tests pass without live providers. They do not establish end-to-end extraction accuracy. See [contributing](CONTRIBUTING.md) for CI, review, and integration requirements.
 
 ## Implementation roadmap
 

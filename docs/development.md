@@ -33,5 +33,6 @@ and uploads are ignored by git; migrations and `alembic.ini` must remain tracked
 
 Update dependencies with uv, commit the new exact pins and lockfile, and rerun
 checks. Setup CI verifies locked installation and configuration boundaries. The legacy schema import and provider tests are repaired here so all current
-unit tests pass. Expanded CI is addressed in ticket #13; PostgreSQL integration
-tests arrive with the ORM/migration ticket.
+unit tests pass. Expanded CI runs lint, format, documentation, all unit tests, and PostgreSQL
+integration/migration checks. See [contributing](../CONTRIBUTING.md) and
+[database setup](database.md) for the full commands.
