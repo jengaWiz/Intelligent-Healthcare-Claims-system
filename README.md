@@ -91,3 +91,7 @@ Implemented components demonstrate the extraction and validation design, but the
 - Validate provider model configuration and Azure API compatibility with pinned dependencies.
 
 The existing tests describe intended behavior; a passing test suite and measured extraction accuracy are not claimed.
+
+## Implementation roadmap
+
+The next milestone is the [end-to-end synthetic claim demo](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/1). See the [workflow contract](docs/m1-contracts.md), [architecture decision](docs/decisions/001-durable-processing.md), and [ticket checklist](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/16). These describe the implementation target; current behavior is summarized above.
