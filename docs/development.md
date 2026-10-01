@@ -16,8 +16,8 @@ clients, or create upload directories. Tests can pass `Settings(_env_file=None)`
 and inject settings into extraction/validation agents.
 
 Before accessing PostgreSQL, set `DATABASE_URL` with the explicit driver prefix
-`postgresql+psycopg://` and your own local credentials. Migrations and API bootstrap
-are separate tickets; this setup PR does not make the complete service runnable.
+`postgresql+psycopg://` and your own local credentials. Migrations are available; the [API guide](api.md) describes startup and the
+implemented claim/health slice. The complete extraction workflow remains unfinished.
 
 Before calling Azure, set its HTTPS endpoint and key. The configurable document
 model defaults to `prebuilt-layout`; provider compatibility/live behavior is
@@ -27,8 +27,8 @@ Client constructors disable their internal retry loops; the durable worker ticke
 owns overall retries. Timeout, lease, heartbeat, upload size, confidence threshold,
 origins, and future auth settings have validated limits.
 
-`API_AUTH_TOKEN` is reserved for the authentication ticket, not active protection.
-Do not expose prototype endpoints until authentication is implemented. Secrets
+`API_AUTH_TOKEN` protects the current API/readiness routes with a bearer guard.
+Full reviewer/session handling remains in the authentication ticket. Secrets
 and uploads are ignored by git; migrations and `alembic.ini` must remain tracked.
 
 Update dependencies with uv, commit the new exact pins and lockfile, and rerun

@@ -1,0 +1,107 @@
+"""FastAPI factory: imports and liveness do not initialize database/provider clients."""
+
+from contextlib import asynccontextmanager
+from threading import Lock
+from uuid import uuid4
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import sessionmaker
+from starlette.exceptions import HTTPException
+
+from api import claims, documents, health
+from api.dependencies import APIError
+from config.settings import ConfigurationError, Settings
+
+
+def create_app(settings: Settings | None = None, *, session_factory=None) -> FastAPI:
+    settings = settings if settings is not None else Settings()
+    engine = None
+    factory = session_factory
+    lock = Lock()
+
+    def get_factory():
+        nonlocal engine, factory
+        with lock:
+            if factory is None:
+                timeout = settings.database_timeout_seconds
+                engine = create_engine(
+                    settings.require_database_url(),
+                    pool_pre_ping=True,
+                    pool_timeout=timeout,
+                    hide_parameters=True,
+                    connect_args={
+                        "connect_timeout": timeout,
+                        "options": f"-c statement_timeout={timeout * 1000}",
+                    },
+                )
+                factory = sessionmaker(bind=engine, autoflush=False)
+            return factory
+
+    @asynccontextmanager
+    async def lifespan(app):
+        try:
+            yield
+        finally:
+            if engine is not None:
+                engine.dispose()
+
+    app = FastAPI(title="Intelligent Healthcare Claims System", version="0.1.0", lifespan=lifespan)
+    app.state.settings = settings
+    app.state.get_session_factory = get_factory
+    if settings.allowed_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.allowed_origins,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Authorization", "Content-Type"],
+        )
+
+    @app.middleware("http")
+    async def request_ids(request: Request, call_next):
+        request.state.request_id = str(uuid4())
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request.state.request_id
+        return response
+
+    def error(request, status, code, message):
+        request_id = getattr(request.state, "request_id", str(uuid4()))
+        headers = {"X-Request-ID": request_id}
+        if status == 401:
+            headers["WWW-Authenticate"] = "Bearer"
+        return JSONResponse(
+            status_code=status,
+            content={"code": code, "message": message, "request_id": request_id},
+            headers=headers,
+        )
+
+    @app.exception_handler(APIError)
+    async def api_error(request, exc):
+        return error(request, exc.status, exc.code, exc.message)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request, exc):
+        return error(request, 422, "invalid_request", "Request does not match the API contract")
+
+    @app.exception_handler(HTTPException)
+    async def http_error(request, exc):
+        code = "not_found" if exc.status_code == 404 else "http_error"
+        return error(request, exc.status_code, code, "Request could not be completed")
+
+    @app.exception_handler(ConfigurationError)
+    @app.exception_handler(SQLAlchemyError)
+    async def database_error(request, exc):
+        return error(request, 503, "database_unavailable", "Database is unavailable")
+
+    @app.exception_handler(Exception)
+    async def unexpected_error(request, exc):
+        return error(request, 500, "internal_error", "Request could not be completed")
+
+    app.include_router(claims.router)
+    app.include_router(documents.router)
+    app.include_router(health.router)
+    return app
