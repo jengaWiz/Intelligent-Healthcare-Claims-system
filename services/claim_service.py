@@ -1,25 +1,12 @@
-from models.claim import Claim
-from sqlalchemy.orm.session import Session
+"""Services flush changes; callers own the transaction and commit/rollback."""
 
-"""
-creates a claim and adds it to the database. Defines the only allowed states for a claim object. 
-"""
-ALLOWED_STATES = {
-    "RECEIVED",
-    "VALIDATED",
-    "EXTRACTION_PENDING",
-    "EXTRACTED",
-    "RISK_CLASSIFIED"
-}
+from sqlalchemy.orm import Session
 
-def create_claim(db: Session, source_system: str | None = None) -> Claim:  
-    claim = Claim(
-        current_state="RECEIVED",
-        source_system=source_system
-    )
+from models import Claim
 
+
+def create_claim(db: Session, source_system: str | None = None) -> Claim:
+    claim = Claim(current_state="RECEIVED", source_system=source_system)
     db.add(claim)
-    db.commit()
-    db.refresh(claim)
+    db.flush()
     return claim
-
