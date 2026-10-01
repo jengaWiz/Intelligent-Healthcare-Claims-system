@@ -206,3 +206,28 @@ def test_review_revision_uniqueness(session):
         with session.begin_nested():
             session.add(Review(**values))
             session.flush()
+
+
+def test_result_cannot_reference_another_claims_job(session):
+    first = document(session)
+    second = document(session)
+    job = ProcessingJob(document_id=first.document_id, state="SUCCEEDED", attempts=1)
+    session.add(job)
+    session.flush()
+    with pytest.raises(IntegrityError):
+        with session.begin_nested():
+            session.add(
+                ExtractionResult(
+                    document_id=second.document_id,
+                    job_id=job.job_id,
+                    extracted_data={},
+                    normalized_data={},
+                    confidence=0.9,
+                    outcome="READY",
+                    extraction_engine="fake",
+                    extraction_version="m1",
+                    provenance={},
+                )
+            )
+            session.flush()
+    assert session.get(Document, second.document_id).extraction_result is None

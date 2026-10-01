@@ -1,6 +1,15 @@
 import uuid
 
-from sqlalchemy import JSON, CheckConstraint, Column, DateTime, Float, ForeignKey, String
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    String,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -11,6 +20,12 @@ from database.base import Base
 class ExtractionResult(Base):
     __tablename__ = "extraction_results"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["job_id", "document_id"],
+            ["processing_jobs.job_id", "processing_jobs.document_id"],
+            name="fk_result_job_document",
+            ondelete="CASCADE",
+        ),
         CheckConstraint("confidence >= 0 AND confidence <= 1", name="ck_result_confidence"),
         CheckConstraint("outcome IN ('READY','REVIEW_REQUIRED')", name="ck_result_outcome"),
     )

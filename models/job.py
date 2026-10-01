@@ -1,6 +1,16 @@
 import uuid
 
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, text
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -11,6 +21,7 @@ from database.base import Base
 class ProcessingJob(Base):
     __tablename__ = "processing_jobs"
     __table_args__ = (
+        UniqueConstraint("job_id", "document_id", name="uq_job_document"),
         CheckConstraint(
             "state IN ('QUEUED','RUNNING','RETRY_WAIT','SUCCEEDED','FAILED')", name="ck_job_state"
         ),
