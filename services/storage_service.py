@@ -1,14 +1,15 @@
 import uuid
-from pathlib import Path
 
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+from config.settings import get_settings
+
 
 def save_file(file_bytes: bytes, filename: str) -> str:
     unique_name = f"{uuid.uuid4()}_{filename}"
-    path = UPLOAD_DIR / unique_name
+    upload_dir = get_settings().upload_dir
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    path = upload_dir / unique_name
 
     with open(path, "wb") as f:
         f.write(file_bytes)
-    
+
     return str(path)

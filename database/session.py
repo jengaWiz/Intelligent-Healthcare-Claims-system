@@ -1,19 +1,23 @@
+"""Create database resources lazily; imports require neither credentials nor a server."""
+
+from functools import lru_cache
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker 
+from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = "postgresql://user:password@localhost/claims_db"
+from config.settings import get_settings
 
-engine = create_engine( DATABASE_URL)
 
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+@lru_cache
+def get_engine():
+    return create_engine(get_settings().require_database_url(), pool_pre_ping=True)
+
+
+@lru_cache
+def get_session_factory():
+    return sessionmaker(autoflush=False, bind=get_engine())
+
 
 def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    with get_session_factory()() as session:
+        yield session

@@ -1,0 +1,17 @@
+name: Setup checks
+on:
+  pull_request:
+  push:
+    branches: [ayaan]
+permissions:
+  contents: read
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.7.17'
+      - run: uv sync --locked
+      - run: uv run --locked pytest tests/test_settings.py -q

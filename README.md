@@ -65,11 +65,11 @@ A separate validation component checks normalized claim data for missing fields,
 
 ### Environment and dependencies
 
-The repository does not yet include a dependency manifest or lockfile. Its imports require FastAPI, SQLAlchemy, a PostgreSQL driver, Pydantic, LangGraph, LangChain's Google and OpenAI integrations, Azure Document Intelligence, and pytest. Compatible versions still need to be pinned.
+Python 3.12 dependencies are pinned in `pyproject.toml` and `uv.lock`. Run `uv sync --locked`; see the [development guide](docs/development.md) for configuration and credential-free checks.
 
-The Azure extractor reads `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and `AZURE_DOCUMENT_INTELLIGENCE_KEY` from the environment. The default LLM provider is Google; its integration requires `GOOGLE_API_KEY`. Selecting OpenAI requires `OPENAI_API_KEY` and an appropriate model name. The agents' default model is currently hardcoded to `gemini-1.5-pro`; verify provider availability and update model selection before attempting live calls.
+The Azure extractor reads `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and `AZURE_DOCUMENT_INTELLIGENCE_KEY` from the environment. The default LLM provider is Google; its integration requires `GOOGLE_API_KEY`. Selecting OpenAI requires `OPENAI_API_KEY` and an appropriate model name. Set `LLM_MODEL` explicitly to a model available to the selected provider account before attempting live calls. Provider clients initialize only when used.
 
-The database connection currently uses a development URL in [database/session.py](database/session.py), and uploaded documents are written to a local `uploads/` directory. Use synthetic documents when exploring the prototype.
+The database connection reads `DATABASE_URL` when first used, and uploaded documents are written under configurable `UPLOAD_DIR` (default `uploads/`). Use synthetic documents when exploring the prototype.
 
 ### API surface
 
@@ -84,7 +84,7 @@ These routes are defined in an `APIRouter`; an application entry point that moun
 
 Implemented components demonstrate the extraction and validation design, but the repository is not yet an end-to-end runnable service. The remaining integration work includes:
 
-- Add a dependency manifest, application entry point, and database migrations.
+- Add an application entry point and database migrations.
 - Correct SQLAlchemy model declarations and align document identifiers and relationships with service queries.
 - Update schema test imports from `models.claim_data` to the existing `schema.claim_data` module.
 - Connect normalization and validation to the extraction workflow and complete review handling.
