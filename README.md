@@ -85,7 +85,7 @@ These routes are defined in an `APIRouter`; an application entry point that moun
 Implemented components demonstrate the extraction and validation design, but the repository is not yet an end-to-end runnable service. The remaining integration work includes:
 
 - Add an application entry point and database migrations.
-- Correct SQLAlchemy model declarations and align document identifiers and relationships with service queries.
+- Complete the normalized result pipeline and durable job integration; repaired ORM models and [versioned migrations](docs/database.md) provide the persistence foundation.
 - Update schema test imports from `models.claim_data` to the existing `schema.claim_data` module.
 - Connect normalization and validation to the extraction workflow and complete review handling.
 - Validate provider model configuration and Azure API compatibility with pinned dependencies.
