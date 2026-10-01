@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException
 
 from api import claims, documents, health
 from api.dependencies import APIError
+from api.upload_limits import UploadSizeMiddleware
 from config.settings import ConfigurationError, Settings
 
 
@@ -51,6 +52,7 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
                 engine.dispose()
 
     app = FastAPI(title="Intelligent Healthcare Claims System", version="0.1.0", lifespan=lifespan)
+    app.add_middleware(UploadSizeMiddleware, max_upload_bytes=settings.max_upload_bytes)
     app.state.settings = settings
     app.state.get_session_factory = get_factory
     if settings.allowed_origins:

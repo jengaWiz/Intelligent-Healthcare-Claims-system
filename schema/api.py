@@ -32,6 +32,24 @@ class ClaimResponse(BaseModel):
         return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
+class DocumentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    document_id: UUID
+    claim_id: UUID
+    file_name: str
+    mime_type: str = Field(validation_alias="file_mime_type")
+    byte_size: int = Field(gt=0)
+    sha256: str
+    state: Literal["UPLOADED", "QUEUED", "PROCESSING", "EXTRACTED", "FAILED"] = Field(
+        validation_alias="document_state"
+    )
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def utc_timestamp(self, value: datetime):
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
 class ErrorResponse(BaseModel):
     code: str
     message: str

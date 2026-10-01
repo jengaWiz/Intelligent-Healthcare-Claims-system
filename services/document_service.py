@@ -1,32 +1,51 @@
 from hashlib import sha256
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from models.document import Document
+from models import Claim, Document
 from services.document_state_service import validate_document_transition
-from services.storage_service import save_file
+
+
+class DocumentConflict(ValueError):
+    pass
+
+
+class ClaimNotFound(ValueError):
+    pass
+
+
+def verify_upload_claim(db: Session, claim_id: UUID, *, lock=False):
+    statement = select(Claim).where(Claim.claim_id == claim_id)
+    if lock:
+        statement = statement.with_for_update()
+    claim = db.scalar(statement)
+    if claim is None:
+        raise ClaimNotFound("Claim not found")
+    if (
+        claim.current_state != "RECEIVED"
+        or db.scalar(select(Document.document_id).where(Document.claim_id == claim_id)) is not None
+    ):
+        raise DocumentConflict("Claim already has a document or is processing")
+    return claim
 
 
 def create_document(
-    db: Session, claim_id, file_name: str, mime_type: str, file_bytes: bytes
+    db: Session, claim_id: UUID, file_name: str, mime_type: str, file_bytes: bytes, stored_path: str
 ) -> Document:
-
-    storage_path = save_file(file_bytes, file_name)
-
+    # Caller owns file creation/cleanup and the transaction including commit.
     document = Document(
         claim_id=claim_id,
         file_name=file_name,
         file_mime_type=mime_type,
-        storage_path=storage_path,
+        storage_path=stored_path,
         byte_size=len(file_bytes),
         sha256=sha256(file_bytes).hexdigest(),
         document_state="UPLOADED",
     )
-
     db.add(document)
     db.flush()
-
     return document
 
 
