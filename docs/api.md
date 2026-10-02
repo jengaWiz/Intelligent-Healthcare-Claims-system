@@ -1,9 +1,8 @@
 # Claim API
 
-The first API slice implements claim creation/lookup and health probes. Upload and
-extraction routes are mounted contract placeholders returning 501; they do not
-write files, call providers, or pretend a job is queued. Tickets #6/#9 implement
-those operations next. No application schema migration is required by this API PR.
+The API implements claim creation/lookup, bounded document uploads, document metadata,
+and health probes. Extraction remains an explicit 501 placeholder pending ticket #9.
+No additional schema migration is required for uploads.
 
 ## Start locally
 
@@ -42,7 +41,7 @@ owns its lazily initialized engine, disposes it at shutdown, and does not share
 ORM sessions across requests. POST commits its transaction before returning 201.
 
 This bearer-token guard is the minimum fail-closed boundary for the local API.
-Reviewer identities, browser sessions/CSRF, record access rules, retention, and
+Reviewer identities, browser sessions/CSRF, record access rules, automated retention, and
 safe operational logging remain in ticket #11. Keep this prototype local until
 that work and deployment verification are complete. Provider credentials are not
 needed to create/read claims or use health probes.
@@ -54,3 +53,25 @@ tests use the migrated `TEST_DATABASE_URL` database with per-test rollback.
 They verify POST persistence across sessions, GET/404/422 behavior, auth ordering,
 redaction, transaction rollback, readiness, and OpenAPI response contracts.
 Use the commands in [contributing](../CONTRIBUTING.md) for all checks.
+
+## Document upload
+
+`POST /claims/{claim_id}/documents` accepts one multipart `file` and requires the
+bearer token. The claim must exist, be RECEIVED, and have no existing document.
+Successful uploads return 201 with document metadata and a `Location` header for
+`GET /documents/{document_id}`. Concurrent uploads serialize on the claim row;
+only one can succeed. No OCR or LLM call runs during upload.
+
+Accepted MIME types are `application/pdf`, `image/jpeg`, and `image/png` with
+matching basic file signatures. This identifies the format; it does not validate
+a complete document or scan its contents. Empty files return 422, unsupported or
+mismatched formats 415, missing claims 404, and conflicting uploads 409.
+`MAX_UPLOAD_BYTES` bounds the file; the multipart request has an additional fixed
+64 KiB framing allowance. Both declared-length and chunked requests are bounded
+before the parser can spool an unlimited body. Oversized requests return 413.
+
+The display filename cannot select a storage path. Traversal names are rejected;
+Windows paths normalized by the multipart parser become display basenames.
+Storage uses generated names and private file permissions under `UPLOAD_DIR`.
+Metadata contains byte size and SHA-256, never the physical storage path.
+See [upload storage](uploads.md) for persistence, cleanup, and retention behavior.

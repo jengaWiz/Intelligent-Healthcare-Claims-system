@@ -17,7 +17,7 @@ and inject settings into extraction/validation agents.
 
 Before accessing PostgreSQL, set `DATABASE_URL` with the explicit driver prefix
 `postgresql+psycopg://` and your own local credentials. Migrations are available; the [API guide](api.md) describes startup and the
-implemented claim/health slice. The complete extraction workflow remains unfinished.
+implemented claim, upload, metadata, and health routes. The complete extraction workflow remains unfinished.
 
 Before calling Azure, set its HTTPS endpoint and key. The configurable document
 model defaults to `prebuilt-layout`; provider compatibility/live behavior is

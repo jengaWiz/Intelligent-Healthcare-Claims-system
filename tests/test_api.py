@@ -137,7 +137,7 @@ def test_internal_failure_rolls_back_and_redacts(api):
 def test_readiness_and_unimplemented_document_routes(api):
     client, _ = api
     assert client.get("/health/ready", headers=HEADERS).json() == {"status": "ready"}
-    for route in (f"/claims/{uuid4()}/documents", f"/documents/{uuid4()}/extract"):
+    for route in (f"/documents/{uuid4()}/extract",):
         response = client.post(route, headers=HEADERS)
         assert response.status_code == 501
         assert "not_implemented" in response.json()["code"]
