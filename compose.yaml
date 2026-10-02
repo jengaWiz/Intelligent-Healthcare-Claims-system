@@ -8,6 +8,7 @@ x-app: &app
     PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://127.0.0.1:8000}
   security_opt: ["no-new-privileges:true"]
   cap_drop: [ALL]
+  init: true
   read_only: true
   tmpfs: [/tmp]
   volumes: [uploads:/data/uploads]

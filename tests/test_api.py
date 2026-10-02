@@ -16,13 +16,15 @@ HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 
 
 @pytest.fixture
-def api():
+def api(tmp_path):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
     Claim.__table__.create(engine)
     factory = sessionmaker(bind=engine)
-    app = create_app(Settings(_env_file=None, api_auth_token=TOKEN), session_factory=factory)
+    app = create_app(
+        Settings(_env_file=None, api_auth_token=TOKEN, upload_dir=tmp_path), session_factory=factory
+    )
     with TestClient(app, raise_server_exceptions=False) as client:
         yield client, factory
     engine.dispose()
@@ -77,11 +79,14 @@ def test_invalid_and_missing_ids(api):
     assert missing.status_code == 404 and missing.json()["code"] == "claim_not_found"
 
 
-def test_authentication_precedes_database_access():
+def test_authentication_precedes_database_access(tmp_path):
     def no_database():
         raise AssertionError("Unauthorized request touched database")
 
-    app = create_app(Settings(_env_file=None, api_auth_token=TOKEN), session_factory=no_database)
+    app = create_app(
+        Settings(_env_file=None, api_auth_token=TOKEN, upload_dir=tmp_path),
+        session_factory=no_database,
+    )
     with TestClient(app, raise_server_exceptions=False) as client:
         for headers in ({}, {"Authorization": "Bearer incorrect"}, {"Authorization": "Basic nope"}):
             response = client.post("/claims", json={}, headers=headers)
@@ -92,8 +97,10 @@ def test_authentication_precedes_database_access():
         assert client.get("/health/live").json() == {"status": "ok"}
 
 
-def test_liveness_independent_readiness_safe_and_bounded():
-    with TestClient(create_app(Settings(_env_file=None, api_auth_token=TOKEN))) as client:
+def test_liveness_independent_readiness_safe_and_bounded(tmp_path):
+    with TestClient(
+        create_app(Settings(_env_file=None, api_auth_token=TOKEN, upload_dir=tmp_path))
+    ) as client:
         assert client.get("/health/live").status_code == 200
         response = client.get("/health/ready", headers=HEADERS)
         assert response.status_code == 503 and response.json()["code"] == "not_ready"
@@ -170,16 +177,26 @@ def test_openapi_documents_contract(api):
         ("GET", "/health/ready", None),
     ],
 )
-def test_database_outage_returns_safe_503(method, path, body):
+def test_database_outage_returns_safe_503(method, path, body, tmp_path):
     from sqlalchemy.exc import OperationalError
 
     def unavailable():
         raise OperationalError("SELECT 1", {}, RuntimeError("password=synthetic-secret"))
 
-    app = create_app(Settings(_env_file=None, api_auth_token=TOKEN), session_factory=unavailable)
+    app = create_app(
+        Settings(_env_file=None, api_auth_token=TOKEN, upload_dir=tmp_path),
+        session_factory=unavailable,
+    )
     with TestClient(app) as client:
         response = client.request(method, path, headers=HEADERS, json=body)
         assert response.status_code == 503
         assert "synthetic-secret" not in response.text
         assert response.json()["request_id"] == response.headers["x-request-id"]
         assert client.get("/health/live").status_code == 200
+
+
+def test_readiness_requires_writable_storage(api):
+    client, _ = api
+    with patch("api.health.tempfile.NamedTemporaryFile", side_effect=PermissionError):
+        response = client.get("/health/ready", headers=HEADERS)
+    assert response.status_code == 503 and response.json()["code"] == "not_ready"

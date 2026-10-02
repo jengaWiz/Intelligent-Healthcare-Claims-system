@@ -25,7 +25,7 @@ upload volume. Separate API and worker containers share `/data/uploads`.
 PostgreSQL 16 has a dedicated persistent volume and no published port. Startup
 waits for database health, runs a one-off migration, then coordinated upload
 reconciliation before API/worker start. Readiness requires authenticated database
-access; Docker performs this probe without printing the token. Ordinary `down`
+access and a writable upload-volume probe; Docker performs this probe without printing the token. Ordinary `down`
 retains data. `down --volumes` destroys it and is for an explicit synthetic reset only.
 
 ## Controlled releases and image rollback
