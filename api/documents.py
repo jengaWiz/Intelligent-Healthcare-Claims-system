@@ -22,6 +22,7 @@ from services.document_service import (
     verify_upload_claim,
 )
 from services.storage_service import StorageError, delete_file, save_file
+from services.upload_reconciliation import storage_lock
 
 logger = logging.getLogger(__name__)
 router = APIRouter(
@@ -132,6 +133,7 @@ async def upload_document(
             with db.begin():
                 # Lock/recheck after body parsing; do not hold locks while waiting on client traffic.
                 verify_upload_claim(db, claim_id, lock=True)
+                storage_lock(db, settings.upload_dir)
                 path = save_file(content, mime, settings.upload_dir)
                 doc = create_document(db, claim_id, name, mime, content, path)
                 result = DocumentResponse.model_validate(doc)
