@@ -102,6 +102,8 @@ $("logout").addEventListener("click", () =>
   }),
 );
 $("nav-upload").addEventListener("click", () => {
+  claimId = null;
+  documentId = null;
   stopPolling();
   message("");
   show("upload");
@@ -113,6 +115,8 @@ for (const name of ["queue", "recent"])
     loadList().catch((e) => message(e.message, true));
   });
 async function loadList() {
+  claimId = null;
+  documentId = null;
   stopPolling();
   show("list");
   $("list-title").textContent =

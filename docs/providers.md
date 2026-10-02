@@ -73,3 +73,14 @@ and pass/failure codes. It suppresses SDK logs and prints neither credentials no
 OCR/extracted content. It accepts no user document path and performs no database
 writes. Success establishes provider access and response contract compatibility;
 it does not evaluate accuracy. Live smoke has not been run as part of this PR.
+
+## Measured evaluation
+
+`uv run --locked python -m scripts.evaluate_providers --configuration-only`
+checks prerequisites without provider calls. With server-side credentials and
+explicit permission for billable synthetic calls, `--live --output report.json`
+evaluates the complete and missing-amount samples. It records sample count, model
+IDs/SDK versions, field matches, failures and measured per-sample latency.
+The simulated failure fixture is excluded from live evaluation. Two synthetic
+samples cannot establish general accuracy. No live evaluation has been performed
+for this local release; the committed report has sample size zero and no metric.

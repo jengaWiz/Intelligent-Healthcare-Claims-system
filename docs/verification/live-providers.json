@@ -1,0 +1,25 @@
+{
+  "synthetic_only": true,
+  "status": "not_configured",
+  "sample_size": 0,
+  "corpus_version": "m1-corpus-1",
+  "model_ids": {
+    "azure": "prebuilt-layout",
+    "llm_provider": "google",
+    "llm": null
+  },
+  "sdk_versions": {
+    "azure-ai-documentintelligence": "1.0.2",
+    "langchain-google-genai": "4.4.0",
+    "langchain-openai": "1.6.7"
+  },
+  "cases": [],
+  "field_correctness": null,
+  "limitations": [
+    "Two fixed synthetic documents cannot establish general accuracy",
+    "Model-reported confidence is not measured accuracy",
+    "Failure fixture is excluded because it only simulates a provider error",
+    "No payer authorization, payment decision, or production compliance evaluation"
+  ],
+  "missing_prerequisite": "Configure Azure endpoint/key and selected LLM model/key server-side"
+}

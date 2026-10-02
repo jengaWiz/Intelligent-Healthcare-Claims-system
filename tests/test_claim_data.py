@@ -80,7 +80,7 @@ def test_claim_data_json_serialization():
         billing=BillingInfo(total_amount="150.00"),
     )
 
-    json_data = claim.dict()
+    json_data = claim.model_dump()
 
     assert json_data["claim_id"] == "CLM-123"
     assert json_data["patient"]["full_name"] == "John Doe"

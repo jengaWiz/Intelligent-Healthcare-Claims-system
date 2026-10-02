@@ -33,7 +33,8 @@ Upload persistence and the reconciler now hold the same PostgreSQL transaction
 advisory lock keyed by the canonical upload root. Reconciliation obtains a fresh
 READ COMMITTED reference snapshot **after** acquiring that lock. An upload's
 commit/rollback finishes before cleanup can inspect it, including when the client
-lost the commit acknowledgement. All API containers must use the same canonical
+lost the commit acknowledgement. The API also acquires that same lock in its fresh
+commit-confirmation session before deciding a missing row permits file deletion. All API containers must use the same canonical
 UPLOAD_DIR path for this volume (compose uses `/data/uploads`).
 
 ```bash

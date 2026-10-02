@@ -2,101 +2,149 @@
 
 # Intelligent Healthcare Claims System
 
-**From unstructured claim documents to structured, reviewable data.**
+**From unstructured documents to traceable, human-reviewed data.**
 
-![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
-![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-1C3C3C)
-![Azure](https://img.shields.io/badge/OCR-Azure_Document_Intelligence-0078D4)
+![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 
-A backend prototype combining document OCR, schema-based LLM extraction, and claim validation to support healthcare document review.
+A runnable synthetic healthcare document demo with durable background processing,
+structured extraction, quality checks, and an audited reviewer workspace.
 
-[Workflow](#workflow) · [Engineering highlights](#engineering-highlights) · [Explore the code](#explore-the-code) · [Development](#development) · [Project status](#project-status)
+[Run the demo](#run-the-demo) · [Architecture](#architecture) · [Engineering](#engineering-highlights) · [Verification](#verification-and-limits)
 
 </div>
 
-## Overview
+![Claim Studio results from an actual browser smoke check](docs/screenshots/results.png)
 
-Healthcare claim documents contain patient details, provider information, service dates, and billing amounts in inconsistent formats. This project explores a workflow that turns those documents into structured records while retaining extraction reasoning and identifying records that need further review.
+## What it does
 
-The repository contains a document upload router, Azure OCR integration, a LangGraph extraction workflow, normalized Pydantic claim schemas, a separate validation agent, and SQLAlchemy persistence models. It is an **integration prototype**. Claim creation, lookup, bounded document upload, metadata lookup, and health checks are runnable; durable extraction runs through a separate PostgreSQL worker; result/review APIs and the demo UI are still being implemented.
+Upload a synthetic PDF, JPEG, or PNG, follow a persisted processing job, inspect
+normalized fields and quality issues, and correct or reject records that need
+human review. The original extraction remains intact, with each review retaining
+actor, reason, timestamp, version, and before/after values.
 
-## Workflow
+**READY means document data is ready.** It does not authorize insurance coverage
+or payment. This project uses synthetic documents and makes no production
+compliance claim.
+
+## Run the demo
+
+Requires Docker Compose, Python 3.12, and uv. No provider account is needed for the
+local fixture demo.
+
+```bash
+uv sync --locked
+uv run --locked python -m scripts.init_demo
+docker compose --env-file .env.docker build api
+docker compose --env-file .env.docker up -d --wait
+```
+
+Open **http://127.0.0.1:8000/demo**. Sign in using `DEMO_PASSWORD` from the private,
+gitignored `.env.docker` file. Download a labeled sample from the upload screen:
+
+| Sample | Fixture outcome | Try this |
+| --- | --- | --- |
+| Complete claim | READY | Inspect fields, confidence, and validation. |
+| Missing amount / low confidence | REVIEW_REQUIRED | Choose “Correct and accept data,” enter `48.75`, and provide a reason. |
+| Simulated provider failure | FAILED | Inspect the safe failure and retry with a fresh job. |
+
+Compose runs separate API and worker processes with PostgreSQL and shared durable
+uploads. It binds to loopback and incurs no hosting cost. A fresh browser login
+creates an isolated workspace; keep that browser session to revisit your records.
+See the [walkthrough](docs/interface.md) and [deployment/backup runbook](docs/deployment.md).
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    A[PDF / JPEG / PNG] --> B[Upload router and local storage]
-    B --> C[Azure Document Intelligence]
-    C --> D[LLM extraction with Pydantic parser]
-    D --> E[Normalize and validate]
-    E --> F{All data-quality gates pass?}
-    F -->|Yes| G[READY]
-    F -->|No| H[REVIEW_REQUIRED]
-    G --> I[Atomic result persistence]
-    H --> I
+    UI[Authenticated browser] --> API[FastAPI: upload + enqueue]
+    API --> DB[(PostgreSQL: jobs + leases)]
+    API --> FILES[(Persistent uploads)]
+    DB --> W[Independent worker + heartbeats]
+    FILES --> W
+    W --> MODE{Processing mode}
+    MODE -->|Live| OCR[Azure OCR → LLM extraction]
+    MODE -->|Fixture| FIX[Hash-checked synthetic corpus]
+    OCR --> V[Normalize + validate]
+    FIX --> V
+    V --> R[Atomic results: READY / REVIEW_REQUIRED]
+    R --> DB
+    DB --> UI
+    UI --> REVIEW[Versioned human review + immutable evidence]
+    REVIEW --> DB
 ```
 
-The graph outcomes describe data quality; they do not authorize insurance coverage or payment. Normalization and deterministic/semantic validation are connected to the graph. Missing/invalid data, low confidence, warnings, and unavailable semantic checks require review. Provider failures remain typed failures rather than successful low-confidence results. See the [processing guide](docs/processing.md) for gates and transaction boundaries. Durable HTTP enqueue/polling and a separate worker are implemented; the reviewer interface remains unfinished.
+Fixture mode is explicit (`SYNTHETIC_MODE=true` in the generated local config) and
+accepts only the versioned sample bytes. It makes **no Azure or LLM calls**.
+Live mode uses the Azure/Google/OpenAI adapters and requires server-side credentials
+and an explicitly selected LLM model. Fixture results do not measure live-model
+accuracy. See [provider setup](docs/providers.md).
 
 ## Engineering highlights
 
-| Area | Implementation |
+| Concern | Implementation |
 | --- | --- |
-| Structured extraction | Pydantic output parsing for patient, provider, service date, amount, confidence, and reasoning; prompt instructions preserve missing values as null. |
-| Explicit orchestration | A typed LangGraph state passes OCR output through extraction and confidence routing. |
-| Data normalization | Canonical claim schemas parse common date formats and currency strings into dates and decimal amounts. |
-| Layered validation | Deterministic completeness, date, and amount checks are combined with semantic checks in a separate agent. |
-| Traceable results | Persistence models capture extracted data, confidence, reasoning, engine, and version. |
-| Document lifecycle | Transition rules describe upload, extraction, failure, and retry states. |
+| Durable processing | PostgreSQL queue, attempt-scoped leases, independent heartbeats, bounded backoff, restart recovery, and stale-worker rejection. |
+| Request deduplication | One active job per document; persisted idempotency aliases retain the original accepted job across retries. |
+| Data quality | Strict extraction contracts, exact decimal amounts, date normalization, deterministic rules, semantic checks, and explicit confidence gates. |
+| Human review | Row locking and expected versions serialize decisions; corrections revalidate without overwriting original evidence. |
+| Access boundaries | Revocable opaque browser sessions, isolated record ownership, exact-origin CSRF, operator workspace, and secret-free frontend assets. |
+| Upload lifecycle | Bounded signature-checked files, generated private storage names, commit-aware cleanup, and lock-coordinated crash reconciliation. |
+| Operability | Nonroot containers, pinned bases/dependencies, migration startup gates, database/storage readiness, safe logs, paired backups, and restore rehearsal. |
 
 ## Explore the code
 
-- [Extraction graph](agents/graphs/extraction_graph.py): workflow state, nodes, and routing.
-- [Extraction agent](agents/extraction_agent.py): Google/OpenAI provider selection and structured output parsing.
-- [Claim schema](schema/claim_data.py): normalized patient, provider, service, and billing data.
-- [Validation agent](agents/validation_agent.py): rule-based checks, semantic checks, scoring, and recommendations.
-- [Document API](api/documents.py): upload and extraction endpoint definitions.
-- [Services](services/): storage, document lifecycle, and persistence orchestration.
-- [Tests](tests/): schema, validation, OCR, and extraction test cases.
+- [Worker lifecycle](services/job_lifecycle.py) and [runtime](worker/runtime.py): leases, recovery, retries, and ownership checks.
+- [Extraction graph](agents/graphs/extraction_graph.py): OCR, structured extraction, normalization, and validation.
+- [Canonical schema](schema/claim_data.py): dates, exact amounts, and normalized document fields.
+- [Review service](services/review_service.py): serialized decisions and append-only audit snapshots.
+- [Access handling](api/auth.py) and [scope checks](services/access_service.py): browser sessions and workspace boundaries.
+- [Upload reconciliation](services/upload_reconciliation.py): safe recovery after crashes and uncertain commits.
+- [Browser interface](web/) and [tests](tests/): executable review experience and its verification.
 
-## Development
+## API and development
 
-### Environment and dependencies
+Protected APIs include claim create/list/read, document upload/metadata, extraction
+enqueue, job polling, result lookup, review queue, and review actions/history.
+Public routes serve liveness, the login shell, static assets, samples, and OpenAPI.
+The operator bearer token stays server-side and owns its own workspace.
 
-Python 3.12 dependencies are pinned in `pyproject.toml` and `uv.lock`. Run `uv sync --locked`; see the [development guide](docs/development.md) for configuration and credential-free checks.
+See [API contracts](docs/api.md), [review behavior](docs/review.md),
+[access/retention](docs/access.md), [development](docs/development.md), and
+[contributing](CONTRIBUTING.md).
 
-The Azure extractor reads `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and `AZURE_DOCUMENT_INTELLIGENCE_KEY` from the environment. The default LLM provider is Google; its integration requires `GOOGLE_API_KEY`. Selecting OpenAI requires `OPENAI_API_KEY` and an appropriate model name. Set `LLM_MODEL` explicitly to a model available to the selected provider account before attempting live calls. Provider clients initialize only when used. The [adapter guide](docs/providers.md) explains typed failures, evidence preservation, and the opt-in synthetic live smoke check.
+```bash
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked python scripts/check_docs.py
+uv run --locked pytest -m 'not integration' -q
+# With a dedicated migrated TEST_DATABASE_URL:
+uv run --locked pytest -m integration -q
+uv run --locked python -m scripts.check_browser
+uv run --locked python -m scripts.check_compose
+```
 
-The database connection reads `DATABASE_URL` when first used, and uploaded documents are written under configurable `UPLOAD_DIR` (default `uploads/`). Use synthetic documents when exploring the prototype.
+## Verification and limits
 
-### API surface
+Local checks cover real PostgreSQL transactions and concurrent requests, an actual
+worker-process crash/restart, Chromium upload/review flows, and full Docker
+persistence plus paired database/upload restore. CI runs setup, lint/docs/unit,
+PostgreSQL/migrations, browser, and container checks. Evidence and release details
+are in [verification](docs/verification/) and [M1 release notes](docs/releases/m1.md).
 
-| Method | Route | Behavior |
-| --- | --- | --- |
-| `POST` | `/claims` | Create a synthetic claim; returns 201 and its location. |
-| `GET` | `/claims/{claim_id}` | Retrieve the public claim fields. |
-| `GET` | `/health/live` | Public liveness, independent of providers and database. |
-| `GET` | `/health/ready` | Authenticated database readiness probe. |
-| `POST` | `/claims/{claim_id}/documents` | Upload a bounded PDF/JPEG/PNG; returns 201. |
-| `GET` | `/documents/{document_id}` | Retrieve document metadata without exposing its storage path. |
-| `POST` | `/documents/{document_id}/extract` | Enqueue durable processing; returns 202 and a job locator. |
-| `GET` | `/jobs/{job_id}` | Poll safe job state and failure metadata. |
+Live Azure/LLM evaluation is **not yet performed**: no provider credentials/model
+are configured, sample size is zero, and no accuracy or latency benchmark is
+claimed. The opt-in evaluator reports exact field correctness, failures, model IDs,
+and measured latency only after real calls. [Configuration report](docs/verification/live-providers.json)
+records this limitation.
 
-The FastAPI factory now mounts the routers. Claim and document endpoints work; extraction queues a durable job for the separate worker. See the [API guide](docs/api.md) for startup, token configuration, and current behavior.
+This is a local synthetic demo. It does not provide persistent user accounts,
+public hosting, automatic retention, document malware scanning, payer integration,
+or production authorization/compliance. Upload format checks are basic signatures.
+Corpus dates are fixed; date-sensitive validation can change as they age.
 
-## Project status
-
-Implemented components demonstrate the extraction and validation design, but the repository is not yet an end-to-end runnable service. The remaining integration work includes:
-
-- Expose persisted results and complete authorized reviewer actions.
-- Expose normalized result retrieval and reviewer audit APIs; repaired ORM models and [versioned migrations](docs/database.md) provide the persistence foundation.
-- Expand synthetic end-to-end and live-provider evaluation beyond the passing unit/persistence suite.
-- Complete review handling and audit presentation for normalized processing results.
-- Validate provider model configuration and Azure API compatibility with pinned dependencies.
-
-The current unit and PostgreSQL persistence tests pass without live providers. They do not establish end-to-end extraction accuracy. See [contributing](CONTRIBUTING.md) for CI, review, and integration requirements.
-
-## Implementation roadmap
-
-The next milestone is the [end-to-end synthetic claim demo](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/1). See the [workflow contract](docs/m1-contracts.md), [architecture decision](docs/decisions/001-durable-processing.md), and [ticket checklist](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/16). These describe the implementation target; current behavior is summarized above. See the [worker guide](docs/jobs.md) for durable processing, retries, and startup.
+The [M1 tracker](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/16)
+links implementation PRs and outstanding external verification.

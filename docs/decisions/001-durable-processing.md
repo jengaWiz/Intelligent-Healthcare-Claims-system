@@ -45,7 +45,7 @@ a worker crashes after a successful external call but before result commit.
 No exactly-once external-call guarantee is claimed. Backup and restore must
 include job state and uploads as well as claim data.
 
-## Hosting candidates (no provisioning decision yet)
+## Hosting alternatives considered
 
 | Candidate | Benefits | Decision checks |
 | --- | --- | --- |
@@ -57,3 +57,11 @@ Issue #14 selects a target against budget, credentials, durable uploads, health
 checks, migration release steps, rollback, and database backup needs. Serverless
 request-only hosting is unsuitable without a separate durable worker. Containers
 and local compose are the portable baseline; no cloud purchase is implied.
+
+### Final M1 deployment choice
+
+The user selected local Docker only with no hosting cost. API/worker share a
+persistent upload volume and PostgreSQL has a separate persistent volume. The API
+binds to loopback HTTP; no public HTTPS staging was provisioned. See the
+[deployment and restore runbook](../deployment.md). Cloud alternatives above remain
+future options, not part of the local release.

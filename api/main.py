@@ -20,6 +20,7 @@ from starlette.exceptions import HTTPException
 from api import auth, claims, demo, documents, health, jobs, reviews
 from api.auth import LoginLimiter
 from api.dependencies import APIError
+from api.error_boundary import SafeErrorBoundary
 from api.request_limits import RequestSizeMiddleware
 from api.upload_limits import UploadSizeMiddleware
 from config.settings import ConfigurationError, Settings
@@ -60,6 +61,7 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
     app = FastAPI(title="Intelligent Healthcare Claims System", version="0.1.0", lifespan=lifespan)
     app.add_middleware(RequestSizeMiddleware)
     app.add_middleware(UploadSizeMiddleware, max_upload_bytes=settings.max_upload_bytes)
+    app.add_middleware(SafeErrorBoundary)
     app.state.login_limiter = LoginLimiter()
     app.state.settings = settings
     app.state.get_session_factory = get_factory

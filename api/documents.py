@@ -143,6 +143,9 @@ async def upload_document(
             if path is not None and committing:
                 try:
                     with request.app.state.get_session_factory()() as confirmation:
+                        # Wait for a still-in-flight server COMMIT/rollback before
+                        # treating a missing row as permission to remove its file.
+                        storage_lock(confirmation, settings.upload_dir)
                         persisted = confirmation.get(Document, result.document_id)
                         if persisted is not None:
                             # A lost commit acknowledgement must not delete a committed file.

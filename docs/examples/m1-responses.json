@@ -29,55 +29,128 @@
     "next_attempt_at": null,
     "error": null
   },
-  "result": {
-    "claim_id": "00000000-0000-4000-8000-000000000001",
-    "document_id": "00000000-0000-4000-8000-000000000002",
-    "job_id": "00000000-0000-4000-8000-000000000003",
-    "claim_data": {
-      "patient": {
-        "full_name": "Synthetic Patient",
-        "date_of_birth": "1980-01-15"
-      },
-      "provider": {
-        "name": "Synthetic Clinic"
-      },
-      "service": {
-        "service_date": "2026-09-01"
-      },
-      "billing": {
-        "total_amount": "150.00",
-        "currency": "USD"
-      }
-    },
-    "extraction_confidence": 0.93,
-    "extraction_reasoning": "Required fields are explicit in the synthetic document.",
-    "validation": {
-      "is_valid": true,
-      "validation_score": 1.0,
-      "issues": [],
-      "recommendations": [],
-      "semantic_status": "completed"
-    },
-    "outcome": "READY",
-    "provenance": {
-      "provider": "google",
-      "model": "configured-model-id",
-      "schema_version": "m1",
-      "prompt_version": "m1"
-    },
-    "created_at": "2026-09-30T12:00:00Z"
-  },
   "review_request": {
     "decision": "correct",
     "expected_version": 3,
     "reason": "Verified against synthetic source.",
-    "corrected_fields": {
+    "corrections": {
+      "patient_name": "Synthetic Patient",
+      "patient_dob": "1980-01-15",
+      "provider_name": "Synthetic Clinic",
+      "service_date": "2026-09-01",
       "total_amount": "150.00"
     }
   },
   "error": {
-    "code": "result_not_ready",
-    "message": "Processing is not complete",
-    "request_id": "synthetic-request"
+    "code": "invalid_correction",
+    "message": "Resolve critical data issues before accepting",
+    "request_id": "00000000-0000-4000-8000-000000000005"
+  },
+  "results": {
+    "claim": {
+      "claim_id": "00000000-0000-4000-8000-000000000001",
+      "state": "READY",
+      "version": 3,
+      "source_system": "synthetic-demo",
+      "created_at": "2026-09-30T12:00:00Z",
+      "updated_at": "2026-09-30T12:00:00Z"
+    },
+    "job": {
+      "job_id": "00000000-0000-4000-8000-000000000003",
+      "document_id": "00000000-0000-4000-8000-000000000002",
+      "state": "SUCCEEDED",
+      "attempts": 1,
+      "max_attempts": 3,
+      "created_at": "2026-09-30T12:00:00Z",
+      "started_at": "2026-09-30T12:00:00Z",
+      "completed_at": "2026-09-30T12:00:00Z",
+      "next_attempt_at": null,
+      "error": null
+    },
+    "extraction": {
+      "extraction_id": "00000000-0000-4000-8000-000000000004",
+      "engine": "SyntheticFixture",
+      "version": "m1.1",
+      "original_data": {
+        "claim_id": null,
+        "external_claim_id": null,
+        "patient": {
+          "full_name": "Synthetic Patient",
+          "date_of_birth": "1980-01-15",
+          "patient_id": null
+        },
+        "provider": {
+          "name": "Synthetic Clinic",
+          "provider_id": null,
+          "address": null,
+          "specialty": null
+        },
+        "service": {
+          "service_date": "2026-09-01",
+          "service_code": null,
+          "service_description": null,
+          "diagnosis_codes": []
+        },
+        "billing": {
+          "total_amount": "150.00",
+          "currency": "USD",
+          "line_items": []
+        },
+        "status": "DRAFT",
+        "submission_date": null,
+        "extraction_confidence": 0.93,
+        "extraction_notes": "Illustrative synthetic extraction, not a live provider result"
+      },
+      "confidence": 0.93,
+      "reasoning": "Illustrative synthetic extraction, not a live provider result",
+      "outcome": "READY",
+      "provenance": {
+        "mode": "synthetic-fixture",
+        "example": "illustrative",
+        "confidence_threshold": 0.8
+      },
+      "created_at": "2026-09-30T12:00:00Z"
+    },
+    "current": {
+      "data": {
+        "claim_id": null,
+        "external_claim_id": null,
+        "patient": {
+          "full_name": "Synthetic Patient",
+          "date_of_birth": "1980-01-15",
+          "patient_id": null
+        },
+        "provider": {
+          "name": "Synthetic Clinic",
+          "provider_id": null,
+          "address": null,
+          "specialty": null
+        },
+        "service": {
+          "service_date": "2026-09-01",
+          "service_code": null,
+          "service_description": null,
+          "diagnosis_codes": []
+        },
+        "billing": {
+          "total_amount": "150.00",
+          "currency": "USD",
+          "line_items": []
+        },
+        "status": "DRAFT",
+        "submission_date": null,
+        "extraction_confidence": 0.93,
+        "extraction_notes": "Illustrative synthetic extraction, not a live provider result"
+      },
+      "validation": {
+        "semantic_status": "completed",
+        "is_valid": true,
+        "validation_score": 1.0,
+        "issues": [],
+        "recommendations": []
+      },
+      "human_reviewed": false
+    },
+    "reviews": []
   }
 }

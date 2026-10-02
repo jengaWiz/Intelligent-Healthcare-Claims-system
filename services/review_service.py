@@ -81,6 +81,8 @@ def result_projection(db, claim_id):
         "job": JobResponse.model_validate(job) if job else None,
         "extraction": {
             "extraction_id": result.extraction_id,
+            "engine": result.extraction_engine,
+            "version": result.extraction_version,
             "original_data": result.normalized_data,
             "confidence": result.confidence,
             "reasoning": result.reasoning,
