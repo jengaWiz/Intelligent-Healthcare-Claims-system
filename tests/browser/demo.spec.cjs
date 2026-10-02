@@ -47,7 +47,17 @@ test('authenticated upload, correction, audit, rejection and safe failure retry'
   await upload(page, 'failure');
   await expect(page.locator('#state')).toHaveText('FAILED', {timeout: 20000});
   await expect(page.getByRole('button', {name: 'Retry processing'})).toBeVisible();
+  let releaseRetry;
+  const retryGate = new Promise(resolve => { releaseRetry = resolve; });
+  await page.route('**/documents/*/extract', async route => {
+    await retryGate;
+    await route.continue();
+  });
   await page.getByRole('button', {name: 'Retry processing'}).click();
+  await expect(page.getByRole('button', {name: 'Sign out'})).toBeDisabled();
+  releaseRetry();
+  await expect(page.getByRole('button', {name: 'Sign out'})).toBeEnabled();
+  await page.unroute('**/documents/*/extract');
   await expect(page.locator('#state')).toHaveText('FAILED', {timeout: 20000});
   await page.getByRole('button', {name: 'My documents'}).click();
   await expect(page.locator('.claim-row')).toHaveCount(4);
