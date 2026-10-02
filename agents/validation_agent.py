@@ -4,6 +4,7 @@ Validation Agent - Validates ClaimData for completeness, consistency, and qualit
 Combines rule-based validation with LLM-powered semantic checks.
 """
 
+import json
 from datetime import date
 from decimal import Decimal
 from functools import cached_property
@@ -13,19 +14,22 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat
 
+from agents.extraction_agent import unique_fields
 from config.settings import Settings, get_settings
 from schema.claim_data import ClaimData
 from schema.validation_result import ValidationIssue, ValidationResult
+from services.provider_errors import FailureCode, ProviderFailure, classify_failure
 
 
 class SemanticValidationOutput(BaseModel):
     """Output from LLM semantic validation."""
 
-    has_issues: bool = Field(description="Whether semantic issues were found")
-    issues: List[str] = Field(default_factory=list, description="List of semantic issues")
-    confidence: float = Field(description="Confidence in the validation (0.0 to 1.0)")
+    model_config = ConfigDict(extra="forbid", strict=True)
+    has_issues: StrictBool
+    issues: List[str] = Field(max_length=20)
+    confidence: StrictFloat = Field(ge=0, le=1, allow_inf_nan=False)
 
 
 class ValidationAgent:
@@ -40,10 +44,14 @@ class ValidationAgent:
         provider: str | None = None,
         model_name: str | None = None,
         settings: Settings | None = None,
+        client=None,
+        today: date | None = None,
     ):
         self.settings = settings or get_settings()
         self.provider = provider or self.settings.llm_provider
         self.model_name = model_name
+        self._client = client
+        self.today = today
         if self.provider not in {"google", "openai"}:
             raise ValueError(f"Unsupported provider: {self.provider}")
         self.parser = PydanticOutputParser(pydantic_object=SemanticValidationOutput)
@@ -66,6 +74,8 @@ class ValidationAgent:
 
     @cached_property
     def llm(self):
+        if self._client is not None:
+            return self._client
         model, key = self.settings.require_llm(self.provider, self.model_name)
         options = {
             "model": model,
@@ -73,12 +83,15 @@ class ValidationAgent:
             "api_key": key,
             "timeout": self.settings.provider_timeout_seconds,
             "max_retries": 0,
+            "max_tokens": 2048,
         }
         if self.provider == "openai":
             return ChatOpenAI(**options)
         return ChatGoogleGenerativeAI(**options)
 
-    def validate(self, claim_data: ClaimData) -> ValidationResult:
+    def validate(
+        self, claim_data: ClaimData, *, run_semantic=True, initial_issues=()
+    ) -> ValidationResult:
         """
         Validate claim data using both rule-based and LLM checks.
 
@@ -88,16 +101,30 @@ class ValidationAgent:
         Returns:
             ValidationResult with issues and recommendations
         """
-        issues: List[ValidationIssue] = []
+        issues: List[ValidationIssue] = list(initial_issues)
 
         # Rule-based validation
         issues.extend(self._check_missing_fields(claim_data))
         issues.extend(self._check_date_logic(claim_data))
         issues.extend(self._check_amounts(claim_data))
 
-        # LLM-powered semantic validation
-        semantic_issues = self._check_semantic_consistency(claim_data)
-        issues.extend(semantic_issues)
+        semantic_status = "unavailable"
+        try:
+            if run_semantic:
+                issues.extend(self._check_semantic_consistency(claim_data))
+                semantic_status = "completed"
+            else:
+                raise ProviderFailure("validation", FailureCode.CONFIGURATION)
+        except ProviderFailure:
+            issues.append(
+                ValidationIssue(
+                    severity="info",
+                    field="semantic",
+                    issue_type="suspicious",
+                    description="Semantic validation is unavailable",
+                    suggested_fix="Explicit human review is required",
+                )
+            )
 
         # Calculate validation score
         validation_score = self._calculate_score(issues)
@@ -109,6 +136,7 @@ class ValidationAgent:
         recommendations = self._generate_recommendations(issues)
 
         return ValidationResult(
+            semantic_status=semantic_status,
             is_valid=is_valid,
             validation_score=validation_score,
             issues=issues,
@@ -142,7 +170,7 @@ class ValidationAgent:
                 )
             )
 
-        if not claim_data.billing.total_amount:
+        if claim_data.billing.total_amount is None:
             issues.append(
                 ValidationIssue(
                     severity="critical",
@@ -181,7 +209,7 @@ class ValidationAgent:
     def _check_date_logic(self, claim_data: ClaimData) -> List[ValidationIssue]:
         """Validate date logic and consistency."""
         issues = []
-        today = date.today()
+        today = self.today or date.today()
 
         # Service date should not be in the future
         if claim_data.service.service_date and claim_data.service.service_date > today:
@@ -228,7 +256,7 @@ class ValidationAgent:
         """Validate billing amounts."""
         issues = []
 
-        if claim_data.billing.total_amount:
+        if claim_data.billing.total_amount is not None:
             amount = claim_data.billing.total_amount
 
             # Amount should be positive
@@ -269,52 +297,66 @@ class ValidationAgent:
 
         return issues
 
+    def close(self):
+        llm = self.__dict__.pop("llm", None)
+        if llm is not None and self._client is None:
+            failure = None
+            try:
+                (llm.root_client if self.provider == "openai" else llm.client).close()
+            except Exception as exc:
+                failure = classify_failure(exc, "validation")
+            if failure is not None:
+                raise failure
+
     def _check_semantic_consistency(self, claim_data: ClaimData) -> List[ValidationIssue]:
-        """Use LLM to check semantic consistency."""
-        issues = []
-
+        failure = None
         try:
-            # Prepare claim data summary for LLM
-            claim_summary = f"""
-Patient: {claim_data.patient.full_name or "Unknown"}
-Date of Birth: {claim_data.patient.date_of_birth or "Unknown"}
-Provider: {claim_data.provider.name or "Unknown"}
-Service Date: {claim_data.service.service_date or "Unknown"}
-Amount: ${claim_data.billing.total_amount or "Unknown"}
-"""
-
-            chain = self.prompt | self.llm | self.parser
-            result = chain.invoke(
+            prompt = self.prompt.invoke(
                 {
-                    "claim_data": claim_summary,
+                    "claim_data": claim_data.model_dump_json(),
                     "format_instructions": self.parser.get_format_instructions(),
                 }
             )
-
-            # Convert LLM issues to ValidationIssue objects
-            if result.has_issues:
-                for issue_desc in result.issues:
-                    issues.append(
-                        ValidationIssue(
-                            severity="warning",
-                            field="semantic",
-                            issue_type="inconsistent",
-                            description=issue_desc,
-                            suggested_fix="Review claim for accuracy",
-                        )
-                    )
-        except Exception as e:
-            # If LLM validation fails, add an info issue but don't fail validation
+            response = self.llm.invoke(prompt)
+        except Exception as exc:
+            failure = classify_failure(exc, "validation")
+        if failure is not None:
+            raise failure
+        try:
+            content = response if isinstance(response, str) else response.text
+            if not isinstance(content, str) or len(content) > 32768:
+                raise ValueError("Invalid semantic response")
+            result = SemanticValidationOutput.model_validate(
+                json.loads(content, object_pairs_hook=unique_fields)
+            )
+            if result.has_issues != bool(result.issues):
+                raise ValueError("Inconsistent semantic response")
+            if any(not issue.strip() or len(issue) > 2000 for issue in result.issues):
+                raise ValueError("Invalid semantic issue")
+        except (ValueError, TypeError, AttributeError, RecursionError):
+            failure = ProviderFailure("validation", FailureCode.INVALID_RESPONSE)
+        if failure is not None:
+            raise failure
+        issues = [
+            ValidationIssue(
+                severity="warning",
+                field="semantic",
+                issue_type="inconsistent",
+                description=description,
+                suggested_fix="Review data against source document",
+            )
+            for description in result.issues
+        ]
+        if result.confidence < self.settings.extraction_confidence_threshold:
             issues.append(
                 ValidationIssue(
-                    severity="info",
+                    severity="warning",
                     field="semantic",
                     issue_type="suspicious",
-                    description=f"Semantic validation could not be completed: {str(e)}",
-                    suggested_fix="Manual review recommended",
+                    description="Semantic check confidence is below the review threshold",
+                    suggested_fix="Explicit human review is required",
                 )
             )
-
         return issues
 
     def _calculate_score(self, issues: List[ValidationIssue]) -> float:
@@ -363,6 +405,8 @@ Amount: ${claim_data.billing.total_amount or "Unknown"}
         if date_issues:
             recommendations.append("Verify all dates with source documents")
 
+        if any(i.field == "semantic" for i in issues):
+            recommendations.append("Review semantic findings and availability")
         if not recommendations:
             recommendations.append("Claim data quality is good")
 
