@@ -72,6 +72,7 @@ async function action(button, operation) {
   if (busy) return;
   busy = true;
   button.disabled = true;
+  $("logout").disabled = true;
   message("");
   try {
     await operation();
@@ -81,6 +82,7 @@ async function action(button, operation) {
   } finally {
     busy = false;
     button.disabled = false;
+    $("logout").disabled = false;
   }
 }
 $("login-form").addEventListener("submit", (event) => {
