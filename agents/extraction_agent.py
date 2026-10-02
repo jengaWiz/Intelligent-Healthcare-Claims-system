@@ -1,5 +1,5 @@
 import json
-import math
+from decimal import Decimal
 from functools import cached_property
 from typing import Literal
 
@@ -18,7 +18,7 @@ def unique_fields(pairs):
     for key, value in pairs:
         if key in result:
             raise ValueError("Duplicate JSON field")
-        result[key] = value
+        result[key] = float(value) if key == "confidence" and isinstance(value, Decimal) else value
     return result
 
 
@@ -29,7 +29,7 @@ class ExtractedData(BaseModel):
     patient_dob: str | None = Field(max_length=32)
     provider_name: str | None = Field(max_length=225)
     service_date: str | None = Field(max_length=32)
-    total_amount: str | float | None = Field(description="Raw amount; normalization runs later")
+    total_amount: str | Decimal | None = Field(description="Raw amount; normalization runs later")
     confidence: StrictFloat = Field(ge=0, le=1, allow_inf_nan=False)
     reasoning: str = Field(min_length=1, max_length=2000)
 
@@ -38,7 +38,7 @@ class ExtractedData(BaseModel):
     def bounded_amount(cls, value):
         if isinstance(value, str) and len(value) > 64:
             raise ValueError("Amount text is too long")
-        if isinstance(value, float) and not math.isfinite(value):
+        if isinstance(value, Decimal) and not value.is_finite():
             raise ValueError("Amount must be finite")
         return value
 
@@ -139,8 +139,10 @@ class ExtractionAgent:
             # truncated output, which is not a successful structured extraction.
             if not isinstance(content, str) or len(content) > 32_768:
                 raise ValueError("Invalid response content")
-            data = json.loads(content, object_pairs_hook=unique_fields)
-            return ExtractedData.model_validate(data).model_dump()
+            data = json.loads(
+                content, parse_float=Decimal, parse_int=Decimal, object_pairs_hook=unique_fields
+            )
+            return ExtractedData.model_validate(data).model_dump(mode="json")
         except (ValueError, TypeError, AttributeError, ValidationError, RecursionError):
             failure = ProviderFailure("extraction", FailureCode.INVALID_RESPONSE)
         raise failure

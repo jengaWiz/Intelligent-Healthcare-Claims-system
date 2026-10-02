@@ -55,3 +55,21 @@ def test_canonical_json_roundtrip_keeps_dates_and_exact_zero():
     assert restored == claim
     assert claim.patient.full_name == "Synthetic"
     assert claim.model_dump(mode="json")["billing"]["total_amount"] == "0.00"
+
+
+def test_llm_numeric_amount_is_parsed_without_binary_float_loss():
+    from unittest.mock import Mock
+
+    from agents.extraction_agent import ExtractionAgent
+
+    client = Mock()
+    client.invoke.return_value = (
+        '{"patient_name":null,"patient_dob":null,"provider_name":null,'
+        '"service_date":null,"total_amount":9007199254740993.01,"confidence":0.9,'
+        '"reasoning":"Synthetic precision fixture"}'
+    )
+    result = ExtractionAgent(client=client).extract("Synthetic")
+    assert result["total_amount"] == "9007199254740993.01"
+    assert ClaimData.from_extracted_data(result).billing.total_amount == Decimal(
+        "9007199254740993.01"
+    )
