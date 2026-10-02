@@ -29,9 +29,9 @@ credentials and block Python socket connections. PostgreSQL tests use a dedicate
 service database and synthetic records. For local DB commands, see
 [the database guide](docs/database.md).
 
-Live provider checks are separate, explicit opt-in work in ticket #7/#15. Until
-that harness is implemented, ordinary CI cannot validate provider-account model
-availability or OCR/LLM accuracy. Do not mistake mocked checks for live verification.
+Live provider checks use the separate [opt-in synthetic harness](docs/providers.md).
+Ordinary CI cannot validate provider-account model availability or OCR/LLM accuracy.
+Do not mistake mocked checks for live verification.
 
 ## Review and merge
 

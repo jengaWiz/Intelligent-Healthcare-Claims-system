@@ -3,8 +3,9 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
-from config.settings import ConfigurationError, Settings
+from config.settings import Settings
 from extractors.azure_extractor import extract_document_from_azure
+from services.provider_errors import FailureCode, ProviderFailure
 
 
 def test_extract_document_from_azure_success():
@@ -14,6 +15,7 @@ def test_extract_document_from_azure_success():
         azure_document_intelligence_key="fake-key",
     )
     result = SimpleNamespace(
+        as_dict=lambda: {},
         content="Raw text content",
         key_value_pairs=[
             SimpleNamespace(
@@ -40,5 +42,6 @@ def test_extract_document_from_azure_success():
 
 def test_extract_document_from_azure_missing_creds():
     with patch("extractors.azure_extractor.get_settings", return_value=Settings(_env_file=None)):
-        with pytest.raises(ConfigurationError, match="AZURE_DOCUMENT_INTELLIGENCE"):
+        with pytest.raises(ProviderFailure) as caught:
             extract_document_from_azure("dummy.pdf")
+        assert caught.value.code == FailureCode.CONFIGURATION

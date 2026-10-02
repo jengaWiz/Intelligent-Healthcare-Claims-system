@@ -21,7 +21,7 @@ implemented claim, upload, metadata, and health routes. The complete extraction 
 
 Before calling Azure, set its HTTPS endpoint and key. The configurable document
 model defaults to `prebuilt-layout`; provider compatibility/live behavior is
-verified by ticket #7. Before calling an LLM, set `LLM_PROVIDER`, `LLM_MODEL`, and
+covered by the [provider adapter guide](providers.md); live account access requires its opt-in smoke check. Before calling an LLM, set `LLM_PROVIDER`, `LLM_MODEL`, and
 only that provider's key. The project deliberately has no guessed model default.
 Client constructors disable their internal retry loops; the durable worker ticket
 owns overall retries. Timeout, lease, heartbeat, upload size, confidence threshold,

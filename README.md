@@ -67,7 +67,7 @@ A separate validation component checks normalized claim data for missing fields,
 
 Python 3.12 dependencies are pinned in `pyproject.toml` and `uv.lock`. Run `uv sync --locked`; see the [development guide](docs/development.md) for configuration and credential-free checks.
 
-The Azure extractor reads `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and `AZURE_DOCUMENT_INTELLIGENCE_KEY` from the environment. The default LLM provider is Google; its integration requires `GOOGLE_API_KEY`. Selecting OpenAI requires `OPENAI_API_KEY` and an appropriate model name. Set `LLM_MODEL` explicitly to a model available to the selected provider account before attempting live calls. Provider clients initialize only when used.
+The Azure extractor reads `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and `AZURE_DOCUMENT_INTELLIGENCE_KEY` from the environment. The default LLM provider is Google; its integration requires `GOOGLE_API_KEY`. Selecting OpenAI requires `OPENAI_API_KEY` and an appropriate model name. Set `LLM_MODEL` explicitly to a model available to the selected provider account before attempting live calls. Provider clients initialize only when used. The [adapter guide](docs/providers.md) explains typed failures, evidence preservation, and the opt-in synthetic live smoke check.
 
 The database connection reads `DATABASE_URL` when first used, and uploaded documents are written under configurable `UPLOAD_DIR` (default `uploads/`). Use synthetic documents when exploring the prototype.
 
