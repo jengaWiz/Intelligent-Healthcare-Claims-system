@@ -4,7 +4,7 @@ Validation Result Schema - Structured output from validation agent.
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ValidationIssue(BaseModel):
@@ -26,6 +26,8 @@ class ValidationIssue(BaseModel):
 
 
 class ValidationResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    semantic_status: Literal["completed", "unavailable"] = "unavailable"
     """
     Result of validating a ClaimData instance.
 
@@ -37,6 +39,7 @@ class ValidationResult(BaseModel):
         description="Overall validation score from 0.0 (many issues) to 1.0 (perfect)",
         ge=0.0,
         le=1.0,
+        allow_inf_nan=False,
     )
     issues: List[ValidationIssue] = Field(
         default_factory=list, description="List of validation issues found"
@@ -59,23 +62,3 @@ class ValidationResult(BaseModel):
     def has_critical_issues(self) -> bool:
         """Check if there are any critical issues."""
         return len(self.critical_issues) > 0
-
-    class Config:
-        """Pydantic configuration."""
-
-        json_schema_extra = {
-            "example": {
-                "is_valid": False,
-                "validation_score": 0.65,
-                "issues": [
-                    {
-                        "severity": "critical",
-                        "field": "patient.full_name",
-                        "issue_type": "missing",
-                        "description": "Patient name is required but missing",
-                        "suggested_fix": "Obtain patient name from source document",
-                    }
-                ],
-                "recommendations": ["Review source document for missing patient information"],
-            }
-        }

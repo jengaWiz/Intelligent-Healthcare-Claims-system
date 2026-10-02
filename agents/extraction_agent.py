@@ -1,5 +1,5 @@
 import json
-import math
+from decimal import Decimal
 from functools import cached_property
 from typing import Literal
 
@@ -7,7 +7,15 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictFloat,
+    ValidationError,
+    field_serializer,
+    field_validator,
+)
 
 from config.settings import Settings, get_settings
 from services.provider_errors import FailureCode, ProviderFailure, classify_failure
@@ -18,7 +26,7 @@ def unique_fields(pairs):
     for key, value in pairs:
         if key in result:
             raise ValueError("Duplicate JSON field")
-        result[key] = value
+        result[key] = float(value) if key == "confidence" and isinstance(value, Decimal) else value
     return result
 
 
@@ -29,7 +37,7 @@ class ExtractedData(BaseModel):
     patient_dob: str | None = Field(max_length=32)
     provider_name: str | None = Field(max_length=225)
     service_date: str | None = Field(max_length=32)
-    total_amount: str | float | None = Field(description="Raw amount; normalization runs later")
+    total_amount: str | Decimal | None = Field(description="Raw amount; normalization runs later")
     confidence: StrictFloat = Field(ge=0, le=1, allow_inf_nan=False)
     reasoning: str = Field(min_length=1, max_length=2000)
 
@@ -38,9 +46,18 @@ class ExtractedData(BaseModel):
     def bounded_amount(cls, value):
         if isinstance(value, str) and len(value) > 64:
             raise ValueError("Amount text is too long")
-        if isinstance(value, float) and not math.isfinite(value):
+        if isinstance(value, Decimal) and not value.is_finite():
             raise ValueError("Amount must be finite")
+        if isinstance(value, Decimal):
+            if abs(value.adjusted()) > 64 or value.as_tuple().exponent < -64:
+                raise ValueError("Amount exceeds supported precision")
+            if len(format(value, "f")) > 64:
+                raise ValueError("Amount text is too long")
         return value
+
+    @field_serializer("total_amount", when_used="json")
+    def decimal_amount_text(self, value):
+        return format(value, "f") if isinstance(value, Decimal) else value
 
 
 class ExtractionAgent:
@@ -139,8 +156,10 @@ class ExtractionAgent:
             # truncated output, which is not a successful structured extraction.
             if not isinstance(content, str) or len(content) > 32_768:
                 raise ValueError("Invalid response content")
-            data = json.loads(content, object_pairs_hook=unique_fields)
-            return ExtractedData.model_validate(data).model_dump()
+            data = json.loads(
+                content, parse_float=Decimal, parse_int=Decimal, object_pairs_hook=unique_fields
+            )
+            return ExtractedData.model_validate(data).model_dump(mode="json")
         except (ValueError, TypeError, AttributeError, ValidationError, RecursionError):
             failure = ProviderFailure("extraction", FailureCode.INVALID_RESPONSE)
         raise failure

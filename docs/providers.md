@@ -23,7 +23,7 @@ calibrated accuracy. Low confidence is valid extraction data for later review.
 The LLM contract requires every field explicitly, using null for unknown values,
 a bounded nonempty reasoning string, and complete JSON. It rejects malformed or
 truncated JSON, duplicate/unknown fields, missing fields, and invalid confidence.
-Dates and amounts remain raw until the normalization ticket (#8). Text input is
+The adapter preserves raw date/amount values; the [processing pipeline](processing.md) then normalizes them. Numeric JSON amounts parse as Decimal and serialize as decimal strings. Text input is
 bounded to 200,000 characters; output is bounded to 32,768 characters and 2,048
 provider output tokens. Larger inputs fail safely rather than silently truncate.
 Text content blocks are supported; reasoning blocks are excluded from JSON parsing.
