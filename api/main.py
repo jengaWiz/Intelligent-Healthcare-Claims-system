@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from starlette.exceptions import HTTPException
 
-from api import claims, documents, health, jobs
+from api import claims, documents, health, jobs, reviews
 from api.dependencies import APIError
 from api.upload_limits import UploadSizeMiddleware
 from config.settings import ConfigurationError, Settings
@@ -108,4 +108,5 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
     app.include_router(documents.router)
     app.include_router(health.router)
     app.include_router(jobs.router)
+    app.include_router(reviews.router)
     return app
