@@ -6,12 +6,13 @@ by the multi-agent system. It transforms raw extracted data into normalized fiel
 suitable for downstream processing, validation, and decision-making.
 """
 
+import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ClaimStatus(str, Enum):
@@ -26,15 +27,19 @@ class ClaimStatus(str, Enum):
 
 
 class PatientInfo(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     """Normalized patient information."""
 
     full_name: Optional[str] = Field(None, description="Patient's full name")
     date_of_birth: Optional[date] = Field(None, description="Patient's date of birth")
     patient_id: Optional[str] = Field(None, description="Patient identifier/member ID")
 
-    @validator("date_of_birth", pre=True)
+    @field_validator("date_of_birth", mode="before")
+    @classmethod
     def parse_date(cls, v):
         """Parse date from various formats."""
+        if isinstance(v, datetime):
+            return v.date()
         if v is None or isinstance(v, date):
             return v
         if isinstance(v, str):
@@ -48,6 +53,7 @@ class PatientInfo(BaseModel):
 
 
 class ProviderInfo(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     """Normalized provider information."""
 
     name: Optional[str] = Field(None, description="Provider or facility name")
@@ -66,9 +72,12 @@ class ServiceInfo(BaseModel):
         default_factory=list, description="ICD-10 diagnosis codes"
     )
 
-    @validator("service_date", pre=True)
+    @field_validator("service_date", mode="before")
+    @classmethod
     def parse_date(cls, v):
         """Parse date from various formats."""
+        if isinstance(v, datetime):
+            return v.date()
         if v is None or isinstance(v, date):
             return v
         if isinstance(v, str):
@@ -89,21 +98,33 @@ class BillingInfo(BaseModel):
         default_factory=list, description="Individual line items"
     )
 
-    @validator("total_amount", pre=True)
+    @field_validator("total_amount", mode="before")
+    @classmethod
     def parse_amount(cls, v):
         """Parse amount from string, removing currency symbols."""
-        if v is None or isinstance(v, Decimal):
-            return v
-        if isinstance(v, (int, float)):
-            return Decimal(str(v))
-        if isinstance(v, str):
-            # Remove common currency symbols and whitespace
-            cleaned = v.replace("$", "").replace(",", "").strip()
-            try:
-                return Decimal(cleaned)
-            except (InvalidOperation, ValueError):
+        if v is None or isinstance(v, bool):
+            return None
+        if isinstance(v, (Decimal, int, float)):
+            amount = Decimal(str(v))
+        elif isinstance(v, str):
+            cleaned = v.strip()
+            cleaned = re.sub(r"^(?:USD\s*|\$\s*)", "", cleaned, flags=re.IGNORECASE)
+            if not re.fullmatch(r"[+-]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?", cleaned):
                 return None
-        return None
+            try:
+                amount = Decimal(cleaned.replace(",", ""))
+            except InvalidOperation:
+                return None
+        else:
+            return None
+        return amount if amount.is_finite() else None
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def normalize_currency(cls, value):
+        if not isinstance(value, str) or value.strip().upper() != "USD":
+            raise ValueError("M1 supports USD only")
+        return "USD"
 
 
 class ClaimData(BaseModel):
@@ -131,18 +152,11 @@ class ClaimData(BaseModel):
 
     # Extraction metadata
     extraction_confidence: Optional[float] = Field(
-        None, description="Overall extraction confidence"
+        None, ge=0, le=1, allow_inf_nan=False, description="Model-reported extraction confidence"
     )
     extraction_notes: Optional[str] = Field(None, description="Notes from extraction process")
 
-    class Config:
-        """Pydantic configuration."""
-
-        use_enum_values = True
-        json_encoders = {
-            date: lambda v: v.isoformat() if v else None,
-            Decimal: lambda v: float(v) if v else None,
-        }
+    model_config = ConfigDict(use_enum_values=True)
 
     @classmethod
     def from_extracted_data(cls, extracted: dict) -> "ClaimData":
