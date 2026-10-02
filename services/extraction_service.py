@@ -80,7 +80,9 @@ def persist_processing_result(
         confidence=output.confidence,
         reasoning=output.reasoning,
         outcome=output.outcome,
-        extraction_engine="Azure+LangGraph",
+        extraction_engine="SyntheticFixture"
+        if output.provenance.get("mode") == "synthetic-fixture"
+        else "Azure+LangGraph",
         extraction_version="m1.1",
         provenance={
             **output.provenance,

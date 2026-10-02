@@ -24,9 +24,11 @@ pytestmark = pytest.mark.integration
 HEADERS = {"Authorization": "Bearer synthetic-token"}
 
 
-def completed(factory, document):
+def completed(factory, document, *, fixture_mode=False):
     doc = document()
     output = processing_output()
+    if fixture_mode:
+        output.provenance["mode"] = "synthetic-fixture"
     output.confidence = 0.5
     output.outcome = "REVIEW_REQUIRED"
     with factory.begin() as db:
@@ -118,3 +120,12 @@ def test_pending_result_has_no_extraction(jobs_db):
         result = client.get(f"/claims/{claim_id}/results", headers=HEADERS).json()
         assert result["claim"]["state"] == "RECEIVED"
         assert result["extraction"] is None and result["current"] is None
+
+
+def test_fixture_engine_matches_recorded_provenance(jobs_db):
+    factory, document = jobs_db
+    _, _, extraction_id = completed(factory, document, fixture_mode=True)
+    with factory() as db:
+        result = db.get(ExtractionResult, extraction_id)
+        assert result.extraction_engine == "SyntheticFixture"
+        assert result.provenance["mode"] == "synthetic-fixture"

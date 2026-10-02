@@ -66,6 +66,8 @@ class AuditResponse(BaseModel):
 
 class ExtractionResponse(BaseModel):
     extraction_id: UUID
+    engine: str
+    version: str
     original_data: ClaimData
     confidence: float
     reasoning: str | None
