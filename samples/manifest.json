@@ -1,0 +1,48 @@
+{
+  "version": "m1-corpus-1",
+  "synthetic_only": true,
+  "scenarios": {
+    "valid": {
+      "file": "valid.pdf",
+      "sha256": "760f54416c36840bf9c2752a31578de2b09d03c7ab4b0c887ae323d2bfb9c2e6",
+      "expected_state": "READY",
+      "extracted": {
+        "patient_name": "Synthetic Example",
+        "patient_dob": "1980-01-01",
+        "provider_name": "Synthetic Clinic",
+        "service_date": "2026-10-01",
+        "total_amount": "42.50",
+        "confidence": 0.95,
+        "reasoning": "Deterministic synthetic fixture; no live OCR or model evaluation"
+      }
+    },
+    "review": {
+      "file": "review.pdf",
+      "sha256": "9a8fd4532abb5659a7f75332a64614701e1743f2773ccbf610f68955f8103d8b",
+      "expected_state": "REVIEW_REQUIRED",
+      "extracted": {
+        "patient_name": "Synthetic Example",
+        "patient_dob": "1980-01-01",
+        "provider_name": "Synthetic Clinic",
+        "service_date": "2026-10-01",
+        "total_amount": null,
+        "confidence": 0.55,
+        "reasoning": "Deterministic synthetic fixture; no live OCR or model evaluation"
+      }
+    },
+    "failure": {
+      "file": "failure.pdf",
+      "sha256": "f69e4026f09e2cd201ab6acd5407335c6ae9b0d5f559baa4974ae15993b2339c",
+      "expected_state": "FAILED",
+      "extracted": {
+        "patient_name": "Synthetic Example",
+        "patient_dob": "1980-01-01",
+        "provider_name": "Synthetic Clinic",
+        "service_date": "2026-10-01",
+        "total_amount": null,
+        "confidence": null,
+        "reasoning": "Deterministic synthetic fixture; no live OCR or model evaluation"
+      }
+    }
+  }
+}

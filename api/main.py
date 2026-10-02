@@ -2,6 +2,7 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from threading import Lock
 from time import monotonic
 from uuid import uuid4
@@ -10,12 +11,13 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from starlette.exceptions import HTTPException
 
-from api import auth, claims, documents, health, jobs, reviews
+from api import auth, claims, demo, documents, health, jobs, reviews
 from api.auth import LoginLimiter
 from api.dependencies import APIError
 from api.request_limits import RequestSizeMiddleware
@@ -126,6 +128,15 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
     async def unexpected_error(request, exc):
         return error(request, 500, "internal_error", "Request could not be completed")
 
+    app.include_router(demo.router)
+    app.mount(
+        "/assets", StaticFiles(directory=Path(__file__).resolve().parents[1] / "web"), name="assets"
+    )
+    app.mount(
+        "/samples",
+        StaticFiles(directory=Path(__file__).resolve().parents[1] / "samples"),
+        name="samples",
+    )
     app.include_router(auth.router)
     app.include_router(claims.router)
     app.include_router(documents.router)

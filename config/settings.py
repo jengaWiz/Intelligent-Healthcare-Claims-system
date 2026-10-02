@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     google_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
     api_auth_token: SecretStr | None = None
+    synthetic_mode: bool = False
     demo_password: SecretStr | None = None
     public_origin: str = "http://127.0.0.1:8000"
     session_secure: bool = True
