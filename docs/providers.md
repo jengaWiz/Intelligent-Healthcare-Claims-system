@@ -34,13 +34,13 @@ Adapters raise `ProviderFailure`, never a fallback success dictionary. Its safe
 fields are `stage`, `code`, `retryable`, and optional `retry_after`; provider error
 messages, response bodies, credentials, and document text are not included or
 chained into the outward traceback. The graph propagates these failures instead
-of routing them into approval or review. Worker integration remains ticket #9.
+of routing them into approval or review. The [durable worker](jobs.md) persists retry/failure outcomes.
 
 Timeouts, connection failures, 429, and selected 5xx failures are retryable.
 Authentication/request rejection, missing configuration, empty OCR/input, and
 invalid structured output are permanent. Numeric Retry-After seconds are capped
 at 60; invalid/nonfinite values are ignored. Adapters attempt each call once;
-SDK retries are disabled. The durable worker will own the persisted attempt budget
+SDK retries are disabled. The durable worker owns the persisted attempt budget
 and backoff, avoiding multiplied retries across libraries.
 
 `PROVIDER_TIMEOUT_SECONDS` configures LLM request timeouts and an Azure polling

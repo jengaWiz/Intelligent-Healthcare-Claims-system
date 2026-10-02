@@ -1,8 +1,8 @@
 # Claim API
 
 The API implements claim creation/lookup, bounded document uploads, document metadata,
-and health probes. Extraction remains an explicit 501 placeholder pending ticket #9.
-No additional schema migration is required for uploads.
+and health probes. Extraction enqueues durable jobs with authenticated polling; see the [worker guide](jobs.md).
+Uploads use the foundation schema; durable enqueue requires the job request-key migration.
 
 ## Start locally
 
@@ -75,3 +75,10 @@ Windows paths normalized by the multipart parser become display basenames.
 Storage uses generated names and private file permissions under `UPLOAD_DIR`.
 Metadata contains byte size and SHA-256, never the physical storage path.
 See [upload storage](uploads.md) for persistence, cleanup, and retention behavior.
+
+## Asynchronous extraction
+
+POST `/documents/{document_id}/extract` with an optional `Idempotency-Key` commits
+a job and returns 202, its `/jobs/{id}` Location, and Retry-After: 2. GET that
+location with the bearer token for safe state/error metadata. The API runs no
+providers; start the [separate worker](jobs.md) to process the queue.

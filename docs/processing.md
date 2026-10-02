@@ -3,8 +3,7 @@
 The graph now executes OCR, structured extraction, normalization, deterministic
 validation, optional semantic validation, and a data-quality gate. It returns
 `READY` or `REVIEW_REQUIRED`. Provider/parse failures raise typed exceptions;
-those are not reviewable extraction results. The durable worker in ticket #9
-will translate them into persisted retry/failure states.
+those are not reviewable extraction results. The [durable worker](jobs.md) translates them into persisted retry/failure states.
 
 `READY` requires confidence at or above the configured threshold, no validation
 issues, `is_valid=true`, and `semantic_status=completed`. Warnings and informational
@@ -50,7 +49,6 @@ completion flush together. The caller commits or rolls everything back. Expired,
 foreign, or completed leases cannot publish a result. No provider runs while
 these locks are held. No schema migration is needed.
 
-The enqueue endpoint, polling API, lease acquisition/recovery, and worker heartbeat
-are still ticket #9; extraction remains unavailable over HTTP until that integration.
-This PR provides the processing/persistence functions rather than an in-request
-background task. Review APIs and corrected-field validation remain later tickets.
+The [durable worker](jobs.md) connects enqueue/polling, lease acquisition/recovery,
+and heartbeats to these functions. Review APIs and corrected-field validation
+remain later tickets. Provider calls run in the worker, never in HTTP requests.
