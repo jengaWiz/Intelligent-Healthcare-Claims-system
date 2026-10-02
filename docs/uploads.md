@@ -42,3 +42,31 @@ docker run --rm --mount type=bind,source=/tmp/claims-upload-smoke,target=/data \
 Each command creates and removes a separate container. The second must retrieve
 the original document metadata and verify the stored bytes. PostgreSQL integration
 tests additionally exercise concurrent uploads and persistence across app instances.
+
+## Crash and uncertain-commit reconciliation
+
+Upload persistence and the reconciler now hold the same PostgreSQL transaction
+advisory lock keyed by the canonical upload root. Reconciliation obtains a fresh
+READ COMMITTED reference snapshot **after** acquiring that lock. An upload's
+commit/rollback finishes before cleanup can inspect it, including when the client
+lost the commit acknowledgement. All API containers must use the same canonical
+UPLOAD_DIR path for this volume (compose uses `/data/uploads`).
+
+```bash
+uv run --locked python -m scripts.reconcile_uploads
+uv run --locked python -m scripts.reconcile_uploads --apply
+```
+
+The default reports counts. `--apply` removes only unreferenced generated UUID
+PDF/JPEG/PNG files and `.upload-` staging files, preserving committed documents,
+unrecognized names, directories, and symlinks. Missing referenced files produce
+an unsuccessful exit for operator investigation; metadata is retained. DB/storage
+failure stops cleanup with a safe code. No deletion occurs before confirming DB
+access and acquiring the lock. Re-run after crash or failed cleanup; persistent
+filesystem permission/hardware failures require fixing storage first.
+
+Container startup runs reconciliation as a controlled pre-API step, so recoverable
+crash artifacts are cleared before the demo accepts uploads. This is eventual
+reconciliation, not an atomic transaction across PostgreSQL and the filesystem.
+No implementation can promise instantaneous cleanup while storage is unavailable.
+PostgreSQL tests cover actual process-crash artifacts and overlapping upload commits.
