@@ -349,3 +349,125 @@ def test_worker_failure_persists_safe_terminal_status(jobs_db, tmp_path):
         job = db.get(ProcessingJob, job_id)
         assert job.state == "FAILED"
         assert "synthetic private" not in job.error_message
+
+
+def test_worker_heartbeats_during_provider_work(jobs_db, tmp_path):
+    from threading import Event
+
+    from worker.runtime import run_once
+
+    factory, document = jobs_db
+    settings = Settings(
+        _env_file=None,
+        upload_dir=tmp_path,
+        job_heartbeat_seconds=1,
+        job_lease_seconds=10,
+        provider_timeout_seconds=1,
+    )
+    doc = worker_document(factory, document, tmp_path)
+    with factory.begin() as db:
+        job_id = enqueue(db, doc, settings).job_id
+    started, release = Event(), Event()
+
+    def slow(*args, **kwargs):
+        started.set()
+        assert release.wait(timeout=5)
+        return processing_output()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(run_once, factory, settings, processor=slow)
+        assert started.wait(timeout=5)
+        with factory() as db:
+            initial = db.get(ProcessingJob, job_id).lease_expires_at
+        try:
+            import time
+
+            deadline = time.monotonic() + 4
+            extended = False
+            while time.monotonic() < deadline:
+                with factory() as db:
+                    extended = db.get(ProcessingJob, job_id).lease_expires_at > initial
+                if extended:
+                    break
+                time.sleep(0.1)
+            assert extended
+        finally:
+            release.set()
+        assert future.result(timeout=5)
+
+
+def test_process_crash_then_new_worker_recovers(jobs_db, tmp_path):
+    import subprocess
+    import sys
+    from datetime import datetime, timedelta, timezone
+
+    factory, document = jobs_db
+    settings = Settings(_env_file=None, upload_dir=tmp_path)
+    doc = worker_document(factory, document, tmp_path)
+    with factory.begin() as db:
+        job_id = enqueue(db, doc, settings).job_id
+    code = """
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from config.settings import Settings
+from services.job_lifecycle import acquire
+engine=create_engine(os.environ["TEST_DATABASE_URL"])
+factory=sessionmaker(bind=engine,autoflush=False)
+with factory.begin() as db:
+    assert acquire(db, Settings(_env_file=None)) is not None
+os._exit(9)
+"""
+    crashed = subprocess.run([sys.executable, "-c", code], capture_output=True, timeout=15)
+    assert crashed.returncode == 9
+    with factory.begin() as db:
+        job = db.get(ProcessingJob, job_id)
+        assert job.state == "RUNNING" and job.attempts == 1
+        job.lease_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    payload = tmp_path / "output.json"
+    payload.write_text(processing_output().model_dump_json())
+    env = {**os.environ, "TEST_UPLOAD_DIR": str(tmp_path), "TEST_OUTPUT_FILE": str(payload)}
+    recovery = """
+import os
+from pathlib import Path
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from config.settings import Settings
+from services.processing import ProcessingResult
+from worker.runtime import run_once
+engine=create_engine(os.environ["TEST_DATABASE_URL"])
+factory=sessionmaker(bind=engine,autoflush=False)
+output=ProcessingResult.model_validate_json(Path(os.environ["TEST_OUTPUT_FILE"]).read_text())
+assert run_once(factory,Settings(_env_file=None,upload_dir=os.environ["TEST_UPLOAD_DIR"]),
+                processor=lambda *args,**kwargs:output)
+engine.dispose()
+"""
+    restarted = subprocess.run(
+        [sys.executable, "-c", recovery], env=env, capture_output=True, timeout=15
+    )
+    assert restarted.returncode == 0
+    with factory() as db:
+        job = db.get(ProcessingJob, job_id)
+        assert job.state == "SUCCEEDED" and job.attempts == 2
+
+
+def test_active_request_alias_does_not_deadlock_with_worker_job_lock(jobs_db):
+    factory, document = jobs_db
+    settings = Settings(_env_file=None)
+    doc = document()
+    with factory.begin() as db:
+        job_id = enqueue(db, doc, settings).job_id
+    with factory.begin() as worker:
+        worker.scalar(
+            select(ProcessingJob)
+            .where(ProcessingJob.job_id == job_id)
+            .with_for_update(key_share=True)
+        )
+        # This adds a foreign key to the job while the worker owns its row lock.
+        with ThreadPoolExecutor(max_workers=1) as pool:
+
+            def duplicate():
+                with factory.begin() as request:
+                    return enqueue(request, doc, settings, "late-key").job_id
+
+            assert pool.submit(duplicate).result(timeout=5) == job_id
