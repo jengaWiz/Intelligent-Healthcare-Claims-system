@@ -17,31 +17,15 @@ Process termination between file promotion and commit can also leave an orphan.
 There is no automatic retention timer or file deletion endpoint yet. Database
 cascade deletion does not delete files. Operators must set a retention policy,
 back up the database and storage together, and reconcile generated files against
-`documents.storage_path` before deleting orphaned files. Stop uploads/workers
-while reconciling; include staging files left by interrupted writes. Do not log
-file contents or patient filenames. Automated lifecycle handling remains future
-work; this prototype should use synthetic documents.
+`documents.storage_path` before deleting orphaned files. The coordinated reconciler below also includes
+staging files left by interrupted writes. Do not log file contents or patient
+filenames; this prototype should use synthetic documents.
 
-## Container recreation smoke check
+## Container persistence verification
 
-The following isolated fixture exercises actual API handlers without providers.
-It stores synthetic SQLite metadata and uploads in the same mounted directory;
-production uses PostgreSQL separately. It verifies persistence, not production
-packaging or a deployed HTTP server.
-
-```bash
-docker build -f tests/containers/uploads.Dockerfile -t claims-upload-smoke:m1 .
-mkdir -p /tmp/claims-upload-smoke
-# Use a fresh dedicated directory for each run.
-docker run --rm --mount type=bind,source=/tmp/claims-upload-smoke,target=/data \
-  claims-upload-smoke:m1 /app/.venv/bin/python /app/smoke.py create --data-dir /data
-docker run --rm --mount type=bind,source=/tmp/claims-upload-smoke,target=/data \
-  claims-upload-smoke:m1 /app/.venv/bin/python /app/smoke.py verify --data-dir /data
-```
-
-Each command creates and removes a separate container. The second must retrieve
-the original document metadata and verify the stored bytes. PostgreSQL integration
-tests additionally exercise concurrent uploads and persistence across app instances.
+The full PostgreSQL/API/worker compose smoke in [deployment.md](deployment.md)
+replaces the earlier isolated SQLite container fixture. It exercises actual HTTP
+uploads, durable processing, review, restart, paired backup/restore and rollback.
 
 ## Crash and uncertain-commit reconciliation
 
