@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="forbid", hide_input_in_errors=True
     )
 
+    database_timeout_seconds: int = Field(default=3, ge=1, le=10)
     database_url: SecretStr | None = None
     azure_document_intelligence_endpoint: str | None = None
     azure_document_intelligence_key: SecretStr | None = None

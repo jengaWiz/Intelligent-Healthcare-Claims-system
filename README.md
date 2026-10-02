@@ -20,7 +20,7 @@ A backend prototype combining document OCR, schema-based LLM extraction, and cla
 
 Healthcare claim documents contain patient details, provider information, service dates, and billing amounts in inconsistent formats. This project explores a workflow that turns those documents into structured records while retaining extraction reasoning and identifying records that need further review.
 
-The repository contains a document upload router, Azure OCR integration, a LangGraph extraction workflow, normalized Pydantic claim schemas, a separate validation agent, and SQLAlchemy persistence models. It is an **integration prototype**; the current checkout requires fixes before the complete API can run.
+The repository contains a document upload router, Azure OCR integration, a LangGraph extraction workflow, normalized Pydantic claim schemas, a separate validation agent, and SQLAlchemy persistence models. It is an **integration prototype**. Claim creation, lookup, and health checks are runnable; document upload and durable extraction are still being implemented.
 
 ## Workflow
 
@@ -73,18 +73,22 @@ The database connection reads `DATABASE_URL` when first used, and uploaded docum
 
 ### API surface
 
-| Method | Route | Intended behavior |
+| Method | Route | Behavior |
 | --- | --- | --- |
-| `POST` | `/claim/{claim_id}/documents` | Store a PDF, JPEG, or PNG attachment and create a document record. |
-| `POST` | `/documents/{document_id}/extract` | Run extraction and return document ID, confidence, and claim state. |
+| `POST` | `/claims` | Create a synthetic claim; returns 201 and its location. |
+| `GET` | `/claims/{claim_id}` | Retrieve the public claim fields. |
+| `GET` | `/health/live` | Public liveness, independent of providers and database. |
+| `GET` | `/health/ready` | Authenticated database readiness probe. |
+| `POST` | `/claims/{claim_id}/documents` | Planned upload; currently returns 501. |
+| `POST` | `/documents/{document_id}/extract` | Planned durable processing; currently returns 501. |
 
-These routes are defined in an `APIRouter`; an application entry point that mounts the router is not included. Although extraction returns HTTP 202, the current handler runs the pipeline synchronously.
+The FastAPI factory now mounts the routers. Claim creation/read and health endpoints work; document upload/extraction return explicit 501 placeholders until the bounded upload and durable worker tickets are complete. See the [API guide](docs/api.md) for startup, token configuration, and current behavior.
 
 ## Project status
 
 Implemented components demonstrate the extraction and validation design, but the repository is not yet an end-to-end runnable service. The remaining integration work includes:
 
-- Add an application entry point and database migrations.
+- Implement bounded document uploads and durable processing behind the application entry point and migrations.
 - Complete the normalized result pipeline and durable job integration; repaired ORM models and [versioned migrations](docs/database.md) provide the persistence foundation.
 - Expand synthetic end-to-end and live-provider evaluation beyond the passing unit/persistence suite.
 - Connect normalization and validation to the extraction workflow and complete review handling.
