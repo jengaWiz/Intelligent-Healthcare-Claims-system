@@ -7,7 +7,15 @@ from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictFloat,
+    ValidationError,
+    field_serializer,
+    field_validator,
+)
 
 from config.settings import Settings, get_settings
 from services.provider_errors import FailureCode, ProviderFailure, classify_failure
@@ -40,7 +48,16 @@ class ExtractedData(BaseModel):
             raise ValueError("Amount text is too long")
         if isinstance(value, Decimal) and not value.is_finite():
             raise ValueError("Amount must be finite")
+        if isinstance(value, Decimal):
+            if abs(value.adjusted()) > 64 or value.as_tuple().exponent < -64:
+                raise ValueError("Amount exceeds supported precision")
+            if len(format(value, "f")) > 64:
+                raise ValueError("Amount text is too long")
         return value
+
+    @field_serializer("total_amount", when_used="json")
+    def decimal_amount_text(self, value):
+        return format(value, "f") if isinstance(value, Decimal) else value
 
 
 class ExtractionAgent:

@@ -73,3 +73,18 @@ def test_llm_numeric_amount_is_parsed_without_binary_float_loss():
     assert ClaimData.from_extracted_data(result).billing.total_amount == Decimal(
         "9007199254740993.01"
     )
+
+
+def test_scientific_numeric_amount_normalizes_to_plain_decimal():
+    from unittest.mock import Mock
+
+    from agents.extraction_agent import ExtractionAgent
+
+    client = Mock()
+    client.invoke.return_value = (
+        '{"patient_name":null,"patient_dob":null,"provider_name":null,'
+        '"service_date":null,"total_amount":4.25e1,"confidence":0.9,"reasoning":"Synthetic"}'
+    )
+    extracted = ExtractionAgent(client=client).extract("Synthetic")
+    assert extracted["total_amount"] == "42.5"
+    assert ClaimData.from_extracted_data(extracted).billing.total_amount == Decimal("42.5")
