@@ -134,13 +134,11 @@ def test_internal_failure_rolls_back_and_redacts(api):
         assert db.scalar(select(func.count()).select_from(Claim)) == 0
 
 
-def test_readiness_and_unimplemented_document_routes(api):
+def test_readiness_and_job_routes_require_auth(api):
     client, _ = api
     assert client.get("/health/ready", headers=HEADERS).json() == {"status": "ready"}
-    for route in (f"/documents/{uuid4()}/extract",):
-        response = client.post(route, headers=HEADERS)
-        assert response.status_code == 501
-        assert "not_implemented" in response.json()["code"]
+    assert client.post(f"/documents/{uuid4()}/extract").status_code == 401
+    assert client.get(f"/jobs/{uuid4()}").status_code == 401
 
 
 def test_openapi_documents_contract(api):

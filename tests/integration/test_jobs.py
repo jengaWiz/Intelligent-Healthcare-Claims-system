@@ -196,3 +196,69 @@ def test_workers_skip_locked_jobs(jobs_db):
         with factory.begin() as second:
             lease2 = acquire(second, settings)
             assert lease1.job_id != lease2.job_id
+
+
+def test_enqueue_http_returns_committed_job_before_processing(jobs_db):
+    from unittest.mock import patch
+
+    from fastapi.testclient import TestClient
+
+    from api.main import create_app
+    from services.job_lifecycle import acquire, fail_attempt
+    from services.provider_errors import FailureCode, ProviderFailure
+
+    factory, document = jobs_db
+    doc = document()
+    settings = Settings(_env_file=None, api_auth_token="synthetic-token")
+    headers = {"Authorization": "Bearer synthetic-token", "Idempotency-Key": "http-synthetic"}
+    with TestClient(create_app(settings, session_factory=factory)) as client:
+        with patch("services.extraction_service.run_extraction_pipeline") as process:
+            response = client.post(f"/documents/{doc}/extract", headers=headers)
+            assert response.status_code == 202, response.text
+            assert response.headers["retry-after"] == "2"
+            assert response.json()["state"] == "QUEUED" and response.json()["attempts"] == 0
+            process.assert_not_called()
+        payload = response.json()
+        assert (
+            not {
+                "lease_owner",
+                "lease_expires_at",
+                "idempotency_key",
+                "error_code",
+                "error_message",
+            }
+            & payload.keys()
+        )
+        locator = response.headers["location"]
+        assert client.get(locator, headers=headers).json() == payload
+        assert (
+            client.post(f"/documents/{doc}/extract", headers=headers).json()["job_id"]
+            == payload["job_id"]
+        )
+        assert client.get(locator).status_code == 401
+        assert client.get(f"/jobs/{uuid4()}", headers=headers).status_code == 404
+        assert (
+            client.post(f"/documents/{uuid4()}/extract", headers=headers).status_code == 409
+        )  # key belongs elsewhere
+        assert (
+            client.post(
+                f"/documents/{doc}/extract", headers={**headers, "Idempotency-Key": "bad key"}
+            ).status_code
+            == 422
+        )
+        with factory.begin() as db:
+            lease = acquire(db, settings)
+        with factory.begin() as db:
+            fail_attempt(db, lease, ProviderFailure("ocr", FailureCode.INVALID_RESPONSE))
+        polled = client.get(locator, headers=headers).json()
+        assert (
+            polled["state"] == "FAILED" and polled["error"]["code"] == "invalid_provider_response"
+        )
+        fresh = client.post(
+            f"/documents/{doc}/extract", headers={**headers, "Idempotency-Key": "fresh-http"}
+        )
+        assert fresh.status_code == 202 and fresh.json()["job_id"] != payload["job_id"]
+        assert (
+            client.post(f"/documents/{doc}/extract", headers=headers).json()["job_id"]
+            == payload["job_id"]
+        )

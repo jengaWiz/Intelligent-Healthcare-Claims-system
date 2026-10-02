@@ -13,7 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from starlette.exceptions import HTTPException
 
-from api import claims, documents, health
+from api import claims, documents, health, jobs
 from api.dependencies import APIError
 from api.upload_limits import UploadSizeMiddleware
 from config.settings import ConfigurationError, Settings
@@ -60,7 +60,8 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
             CORSMiddleware,
             allow_origins=settings.allowed_origins,
             allow_methods=["GET", "POST"],
-            allow_headers=["Authorization", "Content-Type"],
+            allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+            expose_headers=["Location", "Retry-After", "X-Request-ID"],
         )
 
     @app.middleware("http")
@@ -106,4 +107,5 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
     app.include_router(claims.router)
     app.include_router(documents.router)
     app.include_router(health.router)
+    app.include_router(jobs.router)
     return app
