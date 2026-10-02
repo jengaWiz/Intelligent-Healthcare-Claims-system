@@ -25,9 +25,7 @@ from services.storage_service import StorageError, delete_file, save_file
 logger = logging.getLogger(__name__)
 router = APIRouter(
     dependencies=[Depends(require_token)],
-    responses={
-        status: {"model": ErrorResponse} for status in (401, 404, 409, 413, 415, 422, 501, 503)
-    },
+    responses={status: {"model": ErrorResponse} for status in (401, 404, 409, 413, 415, 422, 503)},
 )
 CHUNK_BYTES = 64 * 1024
 SIGNATURES = {

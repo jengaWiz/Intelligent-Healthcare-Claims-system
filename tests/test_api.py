@@ -145,6 +145,13 @@ def test_openapi_documents_contract(api):
     client, _ = api
     schema = client.get("/openapi.json").json()
     assert "/claims" in schema["paths"] and "/health/ready" in schema["paths"]
+    enqueue_schema = schema["paths"]["/documents/{document_id}/extract"]["post"]
+    assert "202" in enqueue_schema["responses"] and "501" not in enqueue_schema["responses"]
+    assert "Location" in enqueue_schema["responses"]["202"]["headers"]
+    assert "Retry-After" in enqueue_schema["responses"]["202"]["headers"]
+    projection = schema["components"]["schemas"]["JobResponse"]["properties"]
+    assert "error" in projection and "lease_owner" not in projection
+    assert "idempotency_key" not in projection and "error_code" not in projection
     response_schema = schema["paths"]["/claims"]["post"]["responses"]["201"]["content"][
         "application/json"
     ]["schema"]

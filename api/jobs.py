@@ -17,7 +17,19 @@ router = APIRouter(
 )
 
 
-@router.post("/documents/{document_id}/extract", status_code=202, response_model=JobResponse)
+@router.post(
+    "/documents/{document_id}/extract",
+    status_code=202,
+    response_model=JobResponse,
+    responses={
+        202: {
+            "headers": {
+                "Location": {"schema": {"type": "string"}},
+                "Retry-After": {"schema": {"type": "integer", "minimum": 1}},
+            }
+        }
+    },
+)
 def enqueue_document(
     document_id: UUID,
     request: Request,
