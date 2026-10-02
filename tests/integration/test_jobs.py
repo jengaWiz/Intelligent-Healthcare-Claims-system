@@ -262,3 +262,90 @@ def test_enqueue_http_returns_committed_job_before_processing(jobs_db):
             client.post(f"/documents/{doc}/extract", headers=headers).json()["job_id"]
             == payload["job_id"]
         )
+
+
+def processing_output():
+    from schema.claim_data import ClaimData
+    from schema.validation_result import ValidationResult
+    from services.processing import ProcessingResult
+
+    raw = dict(
+        patient_name="Synthetic",
+        patient_dob="1980-01-01",
+        provider_name="Synthetic Clinic",
+        service_date="2026-10-01",
+        total_amount="42.50",
+        confidence=0.9,
+        reasoning="Synthetic fixture",
+    )
+    return ProcessingResult(
+        extracted_data=raw,
+        claim_data=ClaimData.from_extracted_data(raw),
+        validation=ValidationResult(is_valid=True, validation_score=1, semantic_status="completed"),
+        confidence=0.9,
+        reasoning=raw["reasoning"],
+        outcome="READY",
+        provenance={"confidence_threshold": 0.8},
+    )
+
+
+def worker_document(factory, document, tmp_path):
+    doc = document()
+    path = tmp_path / "synthetic.pdf"
+    path.write_bytes(b"%PDF-synthetic")
+    with factory.begin() as db:
+        db.get(Document, doc).storage_path = str(path)
+    return doc
+
+
+def test_worker_completes_with_independent_sessions_and_one_result(jobs_db, tmp_path):
+    from models import ExtractionResult
+    from worker.runtime import run_once
+
+    factory, document = jobs_db
+    settings = Settings(_env_file=None, upload_dir=tmp_path)
+    doc = worker_document(factory, document, tmp_path)
+    with factory.begin() as db:
+        job_id = enqueue(db, doc, settings).job_id
+
+    def process(path, **kwargs):
+        # The lease transaction is committed and readable through another session.
+        with factory() as db:
+            assert db.get(ProcessingJob, job_id).state == "RUNNING"
+        return processing_output()
+
+    assert run_once(factory, settings, processor=process)
+    assert not run_once(factory, settings, processor=process)
+    with factory() as db:
+        job = db.get(ProcessingJob, job_id)
+        assert job.state == "SUCCEEDED" and job.document.claim.current_state == "READY"
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(ExtractionResult)
+                .where(ExtractionResult.job_id == job_id)
+            )
+            == 1
+        )
+    with pytest.raises(JobError):
+        with factory.begin() as db:
+            enqueue(db, doc, settings)
+
+
+def test_worker_failure_persists_safe_terminal_status(jobs_db, tmp_path):
+    from worker.runtime import run_once
+
+    factory, document = jobs_db
+    settings = Settings(_env_file=None, upload_dir=tmp_path)
+    doc = worker_document(factory, document, tmp_path)
+    with factory.begin() as db:
+        job_id = enqueue(db, doc, settings).job_id
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("synthetic private content and key")
+
+    assert run_once(factory, settings, processor=broken)
+    with factory() as db:
+        job = db.get(ProcessingJob, job_id)
+        assert job.state == "FAILED"
+        assert "synthetic private" not in job.error_message
