@@ -168,3 +168,50 @@ def test_expired_session_and_safe_request_logs(jobs_db, caplog):
                     BrowserSession.token_hash == sha256(cookie.encode()).hexdigest()
                 )
             )
+
+
+@pytest.mark.parametrize("timezone", ["Etc/GMT-14", "Etc/GMT+12"])
+def test_session_expiry_uses_the_instant_not_database_timezone(jobs_db, timezone):
+    import os
+    from datetime import UTC, datetime, timedelta
+    from hashlib import sha256
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine(
+        os.environ["TEST_DATABASE_URL"],
+        hide_parameters=True,
+        connect_args={"options": "-c TimeZone=" + timezone},
+    )
+    factory = sessionmaker(bind=engine)
+    app = create_app(
+        Settings(
+            _env_file=None,
+            demo_password="synthetic-timezone",
+            session_secure=False,
+            session_seconds=60,
+        ),
+        session_factory=factory,
+    )
+    digest = None
+    try:
+        with TestClient(app) as client:
+            assert (
+                client.post(
+                    "/auth/login",
+                    headers={"Origin": ORIGIN},
+                    json={"password": "synthetic-timezone"},
+                ).status_code
+                == 200
+            )
+            digest = sha256(client.cookies.get("claims_session").encode()).hexdigest()
+            assert client.get("/auth/session").status_code == 200
+            with factory.begin() as db:
+                db.get(BrowserSession, digest).expires_at = datetime.now(UTC) - timedelta(seconds=1)
+            assert client.get("/auth/session").status_code == 401
+    finally:
+        if digest:
+            with factory.begin() as db:
+                db.execute(delete(BrowserSession).where(BrowserSession.token_hash == digest))
+        engine.dispose()
