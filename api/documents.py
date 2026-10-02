@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException
 from api.dependencies import APIError, get_api_db, require_token
 from models import Document
 from schema.api import DocumentResponse, ErrorResponse
+from services.access_service import owns
 from services.document_service import (
     ClaimNotFound,
     DocumentConflict,
@@ -186,6 +187,6 @@ async def upload_document(
 @router.get("/documents/{document_id}", response_model=DocumentResponse)
 def read_document(document_id: UUID, db: Session = Depends(get_api_db)):
     document = db.get(Document, document_id)
-    if document is None:
+    if document is None or not owns(db, document.claim):
         raise APIError(404, "document_not_found", "Document not found")
     return DocumentResponse.model_validate(document)
