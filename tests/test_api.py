@@ -200,3 +200,21 @@ def test_readiness_requires_writable_storage(api):
     with patch("api.health.tempfile.NamedTemporaryFile", side_effect=PermissionError):
         response = client.get("/health/ready", headers=HEADERS)
     assert response.status_code == 503 and response.json()["code"] == "not_ready"
+
+
+def test_unexpected_error_never_reaches_raw_server_logger(caplog, tmp_path):
+    def broken():
+        raise RuntimeError("private document content and secret-token")
+
+    app = create_app(
+        Settings(_env_file=None, api_auth_token=TOKEN, upload_dir=tmp_path), session_factory=broken
+    )
+    # True would rethrow to the ASGI server if the boundary failed to contain it.
+    with (
+        TestClient(app, raise_server_exceptions=True) as client,
+        caplog.at_level("INFO", logger="claims.http"),
+    ):
+        response = client.post("/claims", headers=HEADERS, json={})
+    assert response.status_code == 500 and response.json()["code"] == "internal_error"
+    assert "private document" not in response.text and "secret-token" not in caplog.text
+    assert "code=internal_error" in caplog.text and "Traceback" not in caplog.text
