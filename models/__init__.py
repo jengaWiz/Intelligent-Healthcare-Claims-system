@@ -1,3 +1,5 @@
+from models.browser_session import BrowserSession
+
 """Register all mappings for application sessions and migration metadata."""
 
 from models.claim import Claim
@@ -9,6 +11,7 @@ from models.review import Review
 from models.validation import ValidationOutcome
 
 __all__ = [
+    "BrowserSession",
     "JobRequest",
     "Claim",
     "Document",

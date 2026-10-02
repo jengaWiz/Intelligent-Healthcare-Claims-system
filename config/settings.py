@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     google_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
     api_auth_token: SecretStr | None = None
+    demo_password: SecretStr | None = None
+    public_origin: str = "http://127.0.0.1:8000"
+    session_secure: bool = True
+    session_seconds: int = Field(default=28800, ge=60, le=86400)
     allowed_origins: list[str] = Field(default_factory=list)
     upload_dir: Path = Path("uploads")
     max_upload_bytes: int = Field(default=10 * 1024 * 1024, ge=1, le=100 * 1024 * 1024)
@@ -46,6 +50,7 @@ class Settings(BaseSettings):
         "google_api_key",
         "openai_api_key",
         "api_auth_token",
+        "demo_password",
         mode="before",
     )
     @classmethod
@@ -72,6 +77,12 @@ class Settings(BaseSettings):
         if not value.strip():
             raise ValueError("Azure document model must not be empty")
         return value.strip()
+
+    @field_validator("public_origin")
+    @classmethod
+    def valid_public_origin(cls, value):
+        cls.explicit_origins([value])
+        return value.rstrip("/")
 
     @field_validator("allowed_origins")
     @classmethod

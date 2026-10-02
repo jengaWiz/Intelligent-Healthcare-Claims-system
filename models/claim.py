@@ -20,6 +20,7 @@ class Claim(Base):
     claim_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     current_state = Column(String(50), nullable=False, default="RECEIVED")
     version = Column(Integer, nullable=False, default=1)
+    owner_id = Column(String(100), nullable=False, default="api", server_default="api", index=True)
     source_system = Column(String(100))
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
