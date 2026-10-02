@@ -1,0 +1,58 @@
+name: claims-demo
+x-app: &app
+  image: ${CLAIMS_IMAGE:-claims-demo:m1}
+  build: .
+  env_file: .env.docker
+  environment:
+    UPLOAD_DIR: /data/uploads
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  read_only: true
+  tmpfs: [/tmp]
+  volumes: [uploads:/data/uploads]
+services:
+  db:
+    image: postgres:16-alpine@sha256:sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    environment:
+      POSTGRES_USER: claims
+      POSTGRES_DB: claims
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Initialize .env.docker}
+    volumes: [database:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U claims -d claims"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  migrate:
+    <<: *app
+    command: [alembic, upgrade, head]
+    depends_on:
+      db: {condition: service_healthy}
+  reconcile:
+    <<: *app
+    command: [python, -m, scripts.reconcile_uploads, --apply]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  api:
+    <<: *app
+    ports: ["127.0.0.1:${DEMO_PORT:-8000}:8000"]
+    depends_on:
+      reconcile: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, -m, scripts.check_ready]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+  worker:
+    <<: *app
+    command: [python, -m, worker]
+    depends_on:
+      reconcile: {condition: service_completed_successfully}
+    restart: unless-stopped
+    stop_grace_period: 150s
+volumes:
+  database:
+  uploads:
