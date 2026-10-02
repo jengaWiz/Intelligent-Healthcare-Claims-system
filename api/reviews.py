@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 from api.dependencies import get_api_db, require_token
 from models import Claim
 from schema.api import ClaimResponse
-from schema.review import ReviewCreate
+from schema.review import AuditResponse, ResultsResponse, ReviewCreate
 from services.review_service import audit_projection, decide, get_claim, history, result_projection
 
 router = APIRouter(dependencies=[Depends(require_token)])
 
 
-@router.get("/claims/{claim_id}/results")
+@router.get("/claims/{claim_id}/results", response_model=ResultsResponse)
 def read_results(claim_id: UUID, db: Session = Depends(get_api_db)):
     return result_projection(db, claim_id)
 
@@ -35,13 +35,13 @@ def queue(
     ).all()
 
 
-@router.get("/claims/{claim_id}/reviews")
+@router.get("/claims/{claim_id}/reviews", response_model=list[AuditResponse])
 def read_reviews(claim_id: UUID, db: Session = Depends(get_api_db)):
     get_claim(db, claim_id)
     return [audit_projection(review) for review in history(db, claim_id)]
 
 
-@router.post("/claims/{claim_id}/reviews")
+@router.post("/claims/{claim_id}/reviews", response_model=ResultsResponse)
 def post_review(
     claim_id: UUID, payload: ReviewCreate, request: Request, db: Session = Depends(get_api_db)
 ):
