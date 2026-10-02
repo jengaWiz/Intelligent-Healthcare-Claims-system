@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from models import Claim, Document
+from services.access_service import scoped
 from services.document_state_service import validate_document_transition
 
 
@@ -18,6 +19,7 @@ class ClaimNotFound(ValueError):
 
 def verify_upload_claim(db: Session, claim_id: UUID, *, lock=False):
     statement = select(Claim).where(Claim.claim_id == claim_id)
+    statement = scoped(statement, db)
     if lock:
         statement = statement.with_for_update()
     claim = db.scalar(statement)

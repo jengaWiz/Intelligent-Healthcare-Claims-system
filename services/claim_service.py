@@ -6,7 +6,11 @@ from models import Claim
 
 
 def create_claim(db: Session, source_system: str | None = None) -> Claim:
-    claim = Claim(current_state="RECEIVED", source_system=source_system)
+    claim = Claim(
+        current_state="RECEIVED",
+        source_system=source_system,
+        owner_id=db.info.get("actor_id", "api"),
+    )
     db.add(claim)
     db.flush()
     return claim

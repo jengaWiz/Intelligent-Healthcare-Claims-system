@@ -10,6 +10,7 @@ from api.dependencies import get_api_db, require_token
 from models import Claim
 from schema.api import ClaimResponse
 from schema.review import AuditResponse, ResultsResponse, ReviewCreate
+from services.access_service import scoped
 from services.review_service import audit_projection, decide, get_claim, history, result_projection
 
 router = APIRouter(dependencies=[Depends(require_token)])
@@ -27,7 +28,7 @@ def queue(
     offset: int = Query(0, ge=0),
 ):
     return db.scalars(
-        select(Claim)
+        scoped(select(Claim), db)
         .where(Claim.current_state == "REVIEW_REQUIRED")
         .order_by(Claim.created_at, Claim.claim_id)
         .limit(limit)

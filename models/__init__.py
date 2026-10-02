@@ -1,7 +1,6 @@
-from models.browser_session import BrowserSession
-
 """Register all mappings for application sessions and migration metadata."""
 
+from models.browser_session import BrowserSession
 from models.claim import Claim
 from models.document import Document
 from models.extraction_result import ExtractionResult

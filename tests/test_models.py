@@ -8,6 +8,7 @@ def test_all_mappings_register_and_identifiers_match():
     configure_mappers()
     assert set(Base.metadata.tables) == {
         "claims",
+        "browser_sessions",
         "documents",
         "processing_jobs",
         "job_requests",

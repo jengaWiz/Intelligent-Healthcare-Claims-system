@@ -8,10 +8,12 @@ from models import Claim, Document, ExtractionResult, ProcessingJob, Review
 from schema.api import ClaimResponse, JobResponse
 from schema.claim_data import ClaimData
 from schema.validation_result import ValidationResult
+from services.access_service import scoped
 
 
 def get_claim(db, claim_id, *, lock=False):
     query = select(Claim).where(Claim.claim_id == claim_id)
+    query = scoped(query, db)
     if lock:
         query = query.with_for_update()
     claim = db.scalar(query)

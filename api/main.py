@@ -1,7 +1,9 @@
 """FastAPI factory: imports and liveness do not initialize database/provider clients."""
 
+import logging
 from contextlib import asynccontextmanager
 from threading import Lock
+from time import monotonic
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -13,8 +15,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from starlette.exceptions import HTTPException
 
-from api import claims, documents, health, jobs, reviews
+from api import auth, claims, documents, health, jobs, reviews
+from api.auth import LoginLimiter
 from api.dependencies import APIError
+from api.request_limits import RequestSizeMiddleware
 from api.upload_limits import UploadSizeMiddleware
 from config.settings import ConfigurationError, Settings
 
@@ -52,7 +56,9 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
                 engine.dispose()
 
     app = FastAPI(title="Intelligent Healthcare Claims System", version="0.1.0", lifespan=lifespan)
+    app.add_middleware(RequestSizeMiddleware)
     app.add_middleware(UploadSizeMiddleware, max_upload_bytes=settings.max_upload_bytes)
+    app.state.login_limiter = LoginLimiter()
     app.state.settings = settings
     app.state.get_session_factory = get_factory
     if settings.allowed_origins:
@@ -67,8 +73,24 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
     @app.middleware("http")
     async def request_ids(request: Request, call_next):
         request.state.request_id = str(uuid4())
+        started = monotonic()
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+        )
+        route = request.scope.get("route")
+        logging.getLogger("claims.http").info(
+            "request_id=%s method=%s route=%s status=%s elapsed_ms=%.1f",
+            request.state.request_id,
+            request.method,
+            getattr(route, "path", "unmatched"),
+            response.status_code,
+            (monotonic() - started) * 1000,
+        )
         return response
 
     def error(request, status, code, message):
@@ -104,6 +126,7 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
     async def unexpected_error(request, exc):
         return error(request, 500, "internal_error", "Request could not be completed")
 
+    app.include_router(auth.router)
     app.include_router(claims.router)
     app.include_router(documents.router)
     app.include_router(health.router)

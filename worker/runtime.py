@@ -3,6 +3,7 @@
 import logging
 from pathlib import Path
 from threading import Event, Thread
+from time import monotonic
 
 from services.extraction_service import (
     ProcessingConflict,
@@ -49,6 +50,8 @@ def run_once(factory, settings, *, processor=run_extraction_pipeline):
         lease = acquire(db, settings)
     if lease is None:
         return False
+    started = monotonic()
+    logger.info("job_id=%s state=RUNNING attempt=%s", lease.job_id, lease.attempts)
     failure = None
     with LeaseHeartbeat(factory, lease, settings) as guard:
         try:
@@ -70,4 +73,11 @@ def run_once(factory, settings, *, processor=run_extraction_pipeline):
             logger.info("Worker completion lease lost; job_id=%s", lease.job_id)
         # Other persistence errors leave RUNNING intact. Caller reports only a safe
         # database code, and expiry can recover a rolled-back or uncertain completion.
+    logger.info(
+        "job_id=%s completed_attempt=%s error_code=%s elapsed_ms=%.1f",
+        lease.job_id,
+        lease.attempts,
+        failure.code.value if failure else "none",
+        (monotonic() - started) * 1000,
+    )
     return True
