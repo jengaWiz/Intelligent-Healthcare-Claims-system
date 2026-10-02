@@ -132,6 +132,11 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
     app.mount(
         "/assets", StaticFiles(directory=Path(__file__).resolve().parents[1] / "web"), name="assets"
     )
+    app.mount(
+        "/samples",
+        StaticFiles(directory=Path(__file__).resolve().parents[1] / "samples"),
+        name="samples",
+    )
     app.include_router(auth.router)
     app.include_router(claims.router)
     app.include_router(documents.router)

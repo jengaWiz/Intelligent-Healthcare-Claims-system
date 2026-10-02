@@ -34,13 +34,18 @@ def main():
         print("worker_configuration_invalid")
         return 1
     factory = sessionmaker(bind=engine, autoflush=False)
+    from services.extraction_service import run_extraction_pipeline
+    from services.synthetic_processor import process_sample
+
+    processor = process_sample if settings.synthetic_mode else run_extraction_pipeline
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda *_: stop.set())
     try:
         while not stop.is_set():
             try:
-                handled = run_once(factory, settings)
+                handled = run_once(factory, settings, processor=processor)
             except (SQLAlchemyError, ConfigurationError):
                 logging.error("worker_database_unavailable")
                 if args.once:
