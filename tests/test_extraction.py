@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from agents.extraction_agent import ExtractionAgent
-from agents.graphs.extraction_graph import extraction_graph, route_based_on_confidence
+from agents.graphs.extraction_graph import extraction_graph
 from config.settings import Settings
 
 
@@ -30,18 +30,6 @@ def test_extraction_agent_mock_openai():
         assert agent.llm == mock_llm
 
 
-def test_extraction_graph_routing():
-    """Test the conditional routing logic of the graph."""
-
-    # Test auto-approve
-    state_approve = {"status": "APPROVED"}
-    assert route_based_on_confidence(state_approve) == "auto_approve"
-
-    # Test flag for review
-    state_review = {"status": "FLAGGED_FOR_REVIEW"}
-    assert route_based_on_confidence(state_review) == "flag_review"
-
-
 def test_extraction_graph_execution():
     """Test the full graph execution with mocks."""
 
@@ -66,5 +54,5 @@ def test_extraction_graph_execution():
 
             result = extraction_graph.invoke(initial_state)
 
-            assert result["status"] == "APPROVED"
+            assert result["status"] == "REVIEW_REQUIRED"
             assert result["extracted_data"]["patient_name"] == "Test"

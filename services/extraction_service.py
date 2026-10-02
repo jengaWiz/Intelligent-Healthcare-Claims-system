@@ -1,58 +1,23 @@
-from uuid import UUID
+"""Provider processing outside transactions; lease-checked atomic result persistence."""
 
-from sqlalchemy.orm import Session
-
-from agents.graphs.extraction_graph import extraction_graph
-from models.document import Document
-from models.extraction_result import ExtractionResult
+from agents.graphs.extraction_graph import build_extraction_graph
+from services.processing import ProcessingResult
 
 
-def run_extraction_pipeline(db: Session, document_id: UUID) -> ExtractionResult:
-    document = db.query(Document).filter(Document.document_id == document_id).first()
+class ProcessingConflict(ValueError):
+    """A stale worker or ineligible resource cannot publish processing results."""
 
-    if not document:
-        raise ValueError("Document not found")
 
-    if document.document_state != "EXTRACTION_PENDING":
-        raise ValueError("Document not ready for extraction")
-
-    # Run extraction graph
-    initial_state = {
-        "document_path": document.storage_path,
-        "azure_output": {},
-        "extracted_data": {},
-        "confidence": 0.0,
-        "status": "PENDING",
-    }
-
-    final_state = extraction_graph.invoke(initial_state)
-
-    extracted = final_state["extracted_data"]
-    confidence = final_state["confidence"]
-    status = final_state["status"]
-
-    # Persist result
-    result = ExtractionResult(
-        document_id=document.document_id,
-        extracted_data=extracted,
-        confidence=confidence,
-        reasoning=extracted.get("reasoning", ""),
-        extraction_engine="Azure+LangGraph",
-        extraction_version="1.0",
+def run_extraction_pipeline(document_path: str, *, settings=None, graph=None) -> ProcessingResult:
+    state = (graph or build_extraction_graph(settings=settings)).invoke(
+        {"document_path": document_path}
     )
-
-    db.add(result)
-
-    # Update states
-    document.document_state = "EXTRACTED"
-    if status == "APPROVED":
-        document.claim.current_state = "EXTRACTED"
-    else:
-        document.claim.current_state = (
-            "RISK_CLASSIFIED"  # Or some other state indicating review needed
-        )
-
-    db.commit()
-    db.refresh(result)
-
-    return result
+    return ProcessingResult(
+        extracted_data=state["extracted_data"],
+        claim_data=state["normalized_data"],
+        validation=state["validation"],
+        confidence=state["confidence"],
+        reasoning=state["extracted_data"]["reasoning"],
+        outcome=state["status"],
+        provenance=state["provenance"],
+    )
