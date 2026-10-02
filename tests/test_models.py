@@ -10,6 +10,7 @@ def test_all_mappings_register_and_identifiers_match():
         "claims",
         "documents",
         "processing_jobs",
+        "job_requests",
         "extraction_results",
         "validation_outcomes",
         "reviews",

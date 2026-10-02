@@ -471,3 +471,96 @@ def test_active_request_alias_does_not_deadlock_with_worker_job_lock(jobs_db):
                     return enqueue(request, doc, settings, "late-key").job_id
 
             assert pool.submit(duplicate).result(timeout=5) == job_id
+
+
+def test_concurrent_key_reuse_across_documents_conflicts(jobs_db):
+    factory, document = jobs_db
+    documents = [document(), document()]
+    barrier = Barrier(2)
+
+    def submit(doc):
+        barrier.wait(timeout=5)
+        try:
+            with factory.begin() as db:
+                return (202, enqueue(db, doc, Settings(_env_file=None), "shared-key").job_id)
+        except JobError as error:
+            return (error.status, None)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(submit, documents))
+    assert sorted(status for status, _ in outcomes) == [202, 409]
+    with factory() as db:
+        assert (
+            db.scalar(
+                select(func.count()).select_from(JobRequest).where(JobRequest.key == "shared-key")
+            )
+            == 1
+        )
+
+
+def test_stale_worker_cannot_publish_after_recovery(jobs_db, tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from models import ExtractionResult
+    from services.extraction_service import persist_processing_result
+    from services.job_lifecycle import acquire
+    from worker.runtime import run_once
+
+    factory, document = jobs_db
+    settings = Settings(_env_file=None, upload_dir=tmp_path)
+    doc = worker_document(factory, document, tmp_path)
+    with factory.begin() as db:
+        job_id = enqueue(db, doc, settings).job_id
+    owners = []
+
+    def slow_old_worker(*args, **kwargs):
+        with factory.begin() as db:
+            db.get(ProcessingJob, job_id).lease_expires_at = datetime.now(timezone.utc) - timedelta(
+                seconds=1
+            )
+        with factory.begin() as db:
+            owners.append(acquire(db, settings))
+        return processing_output()
+
+    assert run_once(factory, settings, processor=slow_old_worker)
+    with factory() as db:
+        assert db.get(ProcessingJob, job_id).state == "RUNNING"
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(ExtractionResult)
+                .where(ExtractionResult.job_id == job_id)
+            )
+            == 0
+        )
+    with factory.begin() as db:
+        persist_processing_result(db, job_id, owners[0].owner, processing_output())
+    with factory() as db:
+        assert db.get(ProcessingJob, job_id).state == "SUCCEEDED"
+
+
+def test_transient_failures_stop_at_attempt_budget(jobs_db, tmp_path):
+    from datetime import datetime, timedelta, timezone
+
+    from services.provider_errors import FailureCode, ProviderFailure
+    from worker.runtime import run_once
+
+    factory, document = jobs_db
+    settings = Settings(_env_file=None, upload_dir=tmp_path, job_max_attempts=2)
+    doc = worker_document(factory, document, tmp_path)
+    with factory.begin() as db:
+        job_id = enqueue(db, doc, settings).job_id
+
+    def timeout(*args, **kwargs):
+        raise ProviderFailure("ocr", FailureCode.TIMEOUT, True)
+
+    assert run_once(factory, settings, processor=timeout)
+    with factory.begin() as db:
+        job = db.get(ProcessingJob, job_id)
+        assert job.state == "RETRY_WAIT"
+        job.next_attempt_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+    assert run_once(factory, settings, processor=timeout)
+    with factory() as db:
+        job = db.get(ProcessingJob, job_id)
+        assert job.state == "FAILED" and job.attempts == 2
+        assert job.next_attempt_at is None and job.lease_owner is None
