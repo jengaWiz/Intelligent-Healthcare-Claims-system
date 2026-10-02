@@ -1,0 +1,14 @@
+{
+  "synthetic_only": true,
+  "live_provider_calls": 0,
+  "checks": [
+    "controlled_migrations_and_readiness",
+    "successful_fixture_extraction",
+    "missing_amount_low_confidence_correction_audit",
+    "safe_failure_fresh_retry",
+    "api_worker_restart_queue_durability",
+    "paired_database_upload_restore_preserves_audit",
+    "retained_image_redeploy_rollback_rehearsal"
+  ],
+  "elapsed_seconds": 64.43
+}
