@@ -29,16 +29,15 @@ flowchart LR
     A[PDF / JPEG / PNG] --> B[Upload router and local storage]
     B --> C[Azure Document Intelligence]
     C --> D[LLM extraction with Pydantic parser]
-    D --> E{Confidence >= 0.8?}
-    E -->|Yes| F[APPROVED extraction status]
-    E -->|No| G[FLAGGED_FOR_REVIEW]
-    F --> H[Extraction result persistence]
-    G --> H
+    D --> E[Normalize and validate]
+    E --> F{All data-quality gates pass?}
+    F -->|Yes| G[READY]
+    F -->|No| H[REVIEW_REQUIRED]
+    G --> I[Atomic result persistence]
+    H --> I
 ```
 
-The graph's `APPROVED` label describes extraction confidence, not an insurance coverage or payment decision. Both branches terminate the graph; there is no implemented reviewer interface.
-
-A separate validation component checks normalized claim data for missing fields, inconsistent dates, unusual billing amounts, and LLM-detected semantic issues. It returns severity-tagged issues, a validation score, and recommended next steps; it is not yet connected to the extraction graph.
+The graph outcomes describe data quality; they do not authorize insurance coverage or payment. Normalization and deterministic/semantic validation are connected to the graph. Missing/invalid data, low confidence, warnings, and unavailable semantic checks require review. Provider failures remain typed failures rather than successful low-confidence results. See the [processing guide](docs/processing.md) for gates and transaction boundaries. A reviewer interface and durable HTTP processing remain unfinished.
 
 ## Engineering highlights
 
@@ -92,7 +91,7 @@ Implemented components demonstrate the extraction and validation design, but the
 - Implement durable processing behind the application entry point and migrations.
 - Complete the normalized result pipeline and durable job integration; repaired ORM models and [versioned migrations](docs/database.md) provide the persistence foundation.
 - Expand synthetic end-to-end and live-provider evaluation beyond the passing unit/persistence suite.
-- Connect normalization and validation to the extraction workflow and complete review handling.
+- Complete durable worker integration and review handling for normalized processing results.
 - Validate provider model configuration and Azure API compatibility with pinned dependencies.
 
 The current unit and PostgreSQL persistence tests pass without live providers. They do not establish end-to-end extraction accuracy. See [contributing](CONTRIBUTING.md) for CI, review, and integration requirements.
