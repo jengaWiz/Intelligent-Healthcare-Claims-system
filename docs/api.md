@@ -1,7 +1,8 @@
 # Claim API
 
 The API implements claim creation/lookup, bounded document uploads, document metadata,
-and health probes. Extraction enqueues durable jobs with authenticated polling; see the [worker guide](jobs.md).
+results, review actions/history, browser sessions, and health probes. Extraction
+enqueues durable jobs with authenticated polling; see the [worker guide](jobs.md).
 Uploads use the foundation schema; durable enqueue requires the job request-key migration.
 
 ## Start locally
@@ -12,7 +13,7 @@ cp .env.example .env
 # Edit .env: DATABASE_URL uses postgresql+psycopg:// with your local credentials.
 # Set API_AUTH_TOKEN to a server-generated secret; do not commit it.
 uv run --locked alembic upgrade head
-uv run --locked uvicorn api.main:create_app --factory --host 127.0.0.1 --port 8000
+uv run --locked uvicorn api.main:create_app --factory --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
 Open `http://127.0.0.1:8000/docs` for the API explorer. Use its Authorize button to
@@ -29,10 +30,10 @@ which also appears in `X-Request-ID`. HTTP 401 includes a bearer challenge.
 ## Health and resource boundaries
 
 `GET /health/live` is public and initializes no database or provider client.
-`GET /health/ready` requires the token and runs `SELECT 1`. It returns 503 if the
-database/configuration is unavailable. It does not test provider access, data
-completeness, migrations, or upload storage yet. Public liveness and OpenAPI contain
-no secrets. Claim routes and readiness return 503 until a token is configured.
+`GET /health/ready` requires authentication and probes the database plus writable
+upload storage. It returns 503 when either is unavailable. It does not test
+provider access or semantic completeness. Controlled compose migration gates
+ensure the schema is upgraded before startup. Public liveness/OpenAPI contain no secrets.
 
 `DATABASE_TIMEOUT_SECONDS` (default 3, range 1–10) bounds connection establishment,
 pool acquisition, and SQL statements individually. These are per-operation limits,
@@ -40,11 +41,10 @@ not a single wall-clock deadline across all readiness steps. Each app instance
 owns its lazily initialized engine, disposes it at shutdown, and does not share
 ORM sessions across requests. POST commits its transaction before returning 201.
 
-This bearer-token guard is the minimum fail-closed boundary for the local API.
-Reviewer identities, browser sessions/CSRF, record access rules, automated retention, and
-safe operational logging remain in ticket #11. Keep this prototype local until
-that work and deployment verification are complete. Provider credentials are not
-needed to create/read claims or use health probes.
+Browser sessions and operator bearer requests use separate workspaces. Every
+claim/document/job/result/review lookup checks ownership and returns 404 for other
+workspaces. Browser mutations require exact PUBLIC_ORIGIN and X-CSRF-Token.
+See [access handling](access.md) and [the local Docker setup](deployment.md).
 
 ## Verification
 
@@ -82,3 +82,12 @@ POST `/documents/{document_id}/extract` with an optional `Idempotency-Key` commi
 a job and returns 202, its `/jobs/{id}` Location, and Retry-After: 2. GET that
 location with the bearer token for safe state/error metadata. The API runs no
 providers; start the [separate worker](jobs.md) to process the queue.
+
+## Results and review
+
+GET `/claims` lists owned claims with bounded limit/offset pagination. GET
+`/claims/{id}/results` returns typed state/job, original extraction, current fields
+and validation, and ordered audit history. GET `/reviews` lists owned review-required
+claims. POST `/claims/{id}/reviews` accepts expected_version, decision, reason and
+(for corrections only) bounded corrected fields. GET `/claims/{id}/reviews` returns
+actor/time/reason/before-after revisions. See [review contracts](review.md).

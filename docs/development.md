@@ -17,7 +17,8 @@ and inject settings into extraction/validation agents.
 
 Before accessing PostgreSQL, set `DATABASE_URL` with the explicit driver prefix
 `postgresql+psycopg://` and your own local credentials. Migrations are available; the [API guide](api.md) describes startup and the
-implemented claim, upload, metadata, and health routes. The complete extraction workflow remains unfinished.
+implemented claims, uploads, jobs, results, review and health routes. For a
+credential-free full demo, use [local Docker](deployment.md).
 
 Before calling Azure, set its HTTPS endpoint and key. The configurable document
 model defaults to `prebuilt-layout`; provider compatibility/live behavior is
@@ -25,10 +26,11 @@ covered by the [provider adapter guide](providers.md); live account access requi
 only that provider's key. The project deliberately has no guessed model default.
 Client constructors disable their internal retry loops; the durable worker ticket
 owns overall retries. Timeout, lease, heartbeat, upload size, confidence threshold,
-origins, and future auth settings have validated limits.
+origins, and session/auth settings have validated limits.
 
 `API_AUTH_TOKEN` protects the current API/readiness routes with a bearer guard.
-Full reviewer/session handling remains in the authentication ticket. Secrets
+Browser sessions/CSRF and isolated ownership protect the reviewer interface; see
+[access](access.md). Secrets
 and uploads are ignored by git; migrations and `alembic.ini` must remain tracked.
 
 Update dependencies with uv, commit the new exact pins and lockfile, and rerun
