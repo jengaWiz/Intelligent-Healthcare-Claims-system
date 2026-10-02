@@ -28,7 +28,10 @@ def llm_extract_node(state: ExtractionState) -> Dict[str, Any]:
     raw_text = azure_data.get("raw_text", "")
 
     agent = ExtractionAgent()
-    extracted = agent.extract(raw_text)
+    try:
+        extracted = agent.extract(raw_text)
+    finally:
+        agent.close()
 
     return {"extracted_data": extracted, "confidence": extracted.get("confidence", 0.0)}
 

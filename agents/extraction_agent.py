@@ -1,23 +1,46 @@
+import json
+import math
 from functools import cached_property
-from typing import Literal, Optional
+from typing import Literal
 
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, ValidationError, field_validator
 
 from config.settings import Settings, get_settings
+from services.provider_errors import FailureCode, ProviderFailure, classify_failure
+
+
+def unique_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON field")
+        result[key] = value
+    return result
 
 
 class ExtractedData(BaseModel):
-    patient_name: Optional[str] = Field(description="Name of the patient")
-    patient_dob: Optional[str] = Field(description="Date of birth of the patient")
-    provider_name: Optional[str] = Field(description="Name of the healthcare provider")
-    service_date: Optional[str] = Field(description="Date of service")
-    total_amount: Optional[str] = Field(description="Total amount charged")
-    confidence: float = Field(description="Confidence score of the extraction (0.0 to 1.0)")
-    reasoning: str = Field(description="Explanation of why these values were extracted")
+    model_config = ConfigDict(extra="forbid", strict=True, str_strip_whitespace=True)
+
+    patient_name: str | None = Field(max_length=225)
+    patient_dob: str | None = Field(max_length=32)
+    provider_name: str | None = Field(max_length=225)
+    service_date: str | None = Field(max_length=32)
+    total_amount: str | float | None = Field(description="Raw amount; normalization runs later")
+    confidence: StrictFloat = Field(ge=0, le=1, allow_inf_nan=False)
+    reasoning: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("total_amount")
+    @classmethod
+    def bounded_amount(cls, value):
+        if isinstance(value, str) and len(value) > 64:
+            raise ValueError("Amount text is too long")
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError("Amount must be finite")
+        return value
 
 
 class ExtractionAgent:
@@ -26,10 +49,12 @@ class ExtractionAgent:
         provider: Literal["openai", "google"] | None = None,
         model_name: str | None = None,
         settings: Settings | None = None,
+        client=None,
     ):
         self.settings = settings or get_settings()
         self.provider = provider or self.settings.llm_provider
         self.model_name = model_name
+        self._client = client
         if self.provider not in {"openai", "google"}:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -62,6 +87,8 @@ class ExtractionAgent:
 
     @cached_property
     def llm(self):
+        if self._client is not None:
+            return self._client
         model, key = self.settings.require_llm(self.provider, self.model_name)
         options = {
             "model": model,
@@ -69,35 +96,51 @@ class ExtractionAgent:
             "api_key": key,
             "timeout": self.settings.provider_timeout_seconds,
             "max_retries": 0,
+            "max_tokens": 2048,
         }
         if self.provider == "openai":
             return ChatOpenAI(**options)
         return ChatGoogleGenerativeAI(**options)
 
+    def close(self):
+        """Close only adapter-owned clients; injected clients belong to the caller."""
+        llm = self.__dict__.pop("llm", None)
+        if llm is not None and self._client is None:
+            client = llm.root_client if self.provider == "openai" else llm.client
+            failure = None
+            try:
+                client.close()
+            except Exception as exc:
+                failure = classify_failure(exc, "extraction")
+            if failure is not None:
+                raise failure
+
     def extract(self, document_text: str) -> dict:
-        """
-        Extracts structured data from raw document text using an LLM.
-
-        Args:
-            document_text: The raw text from the document.
-
-        Returns:
-            A dictionary containing the extracted fields, confidence, and reasoning.
-        """
-        chain = self.prompt | self.llm | self.parser
-
+        if not isinstance(document_text, str) or not document_text.strip():
+            raise ProviderFailure("extraction", FailureCode.EMPTY_INPUT)
+        if len(document_text) > 200_000:
+            raise ProviderFailure("extraction", FailureCode.INVALID_RESPONSE)
+        failure = None
         try:
-            result = chain.invoke(
+            prompt = self.prompt.invoke(
                 {
                     "raw_text": document_text,
                     "format_instructions": self.parser.get_format_instructions(),
                 }
             )
-            return result.model_dump()
-        except Exception as e:
-            # Fallback or error handling
-            return {
-                "error": str(e),
-                "confidence": 0.0,
-                "reasoning": "Extraction failed due to an error.",
-            }
+            response = self.llm.invoke(prompt)
+        except Exception as exc:
+            failure = classify_failure(exc, "extraction")
+        if failure is not None:
+            raise failure
+        try:
+            content = response if isinstance(response, str) else response.text
+            # JSON must be complete. LangChain's partial-JSON parser can repair
+            # truncated output, which is not a successful structured extraction.
+            if not isinstance(content, str) or len(content) > 32_768:
+                raise ValueError("Invalid response content")
+            data = json.loads(content, object_pairs_hook=unique_fields)
+            return ExtractedData.model_validate(data).model_dump()
+        except (ValueError, TypeError, AttributeError, ValidationError, RecursionError):
+            failure = ProviderFailure("extraction", FailureCode.INVALID_RESPONSE)
+        raise failure

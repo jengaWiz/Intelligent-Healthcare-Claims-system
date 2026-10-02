@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     def nonempty_model(cls, value):
         if not value.strip():
             raise ValueError("Azure document model must not be empty")
-        return value
+        return value.strip()
 
     @field_validator("allowed_origins")
     @classmethod
