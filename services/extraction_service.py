@@ -46,7 +46,7 @@ def persist_processing_result(
             ProcessingJob.lease_owner == lease_owner,
             ProcessingJob.lease_expires_at > func.clock_timestamp(),
         )
-        .with_for_update()
+        .with_for_update(key_share=True)
     )
     if job is None:
         raise ProcessingConflict("Job lease is not active or owned")

@@ -25,9 +25,7 @@ from services.storage_service import StorageError, delete_file, save_file
 logger = logging.getLogger(__name__)
 router = APIRouter(
     dependencies=[Depends(require_token)],
-    responses={
-        status: {"model": ErrorResponse} for status in (401, 404, 409, 413, 415, 422, 501, 503)
-    },
+    responses={status: {"model": ErrorResponse} for status in (401, 404, 409, 413, 415, 422, 503)},
 )
 CHUNK_BYTES = 64 * 1024
 SIGNATURES = {
@@ -191,8 +189,3 @@ def read_document(document_id: UUID, db: Session = Depends(get_api_db)):
     if document is None:
         raise APIError(404, "document_not_found", "Document not found")
     return DocumentResponse.model_validate(document)
-
-
-@router.post("/documents/{document_id}/extract", status_code=501, response_model=ErrorResponse)
-def extract_document(document_id: UUID):
-    raise APIError(501, "extraction_not_implemented", "Document processing is not implemented yet")

@@ -20,7 +20,7 @@ A backend prototype combining document OCR, schema-based LLM extraction, and cla
 
 Healthcare claim documents contain patient details, provider information, service dates, and billing amounts in inconsistent formats. This project explores a workflow that turns those documents into structured records while retaining extraction reasoning and identifying records that need further review.
 
-The repository contains a document upload router, Azure OCR integration, a LangGraph extraction workflow, normalized Pydantic claim schemas, a separate validation agent, and SQLAlchemy persistence models. It is an **integration prototype**. Claim creation, lookup, bounded document upload, metadata lookup, and health checks are runnable; durable extraction is still being implemented.
+The repository contains a document upload router, Azure OCR integration, a LangGraph extraction workflow, normalized Pydantic claim schemas, a separate validation agent, and SQLAlchemy persistence models. It is an **integration prototype**. Claim creation, lookup, bounded document upload, metadata lookup, and health checks are runnable; durable extraction runs through a separate PostgreSQL worker; result/review APIs and the demo UI are still being implemented.
 
 ## Workflow
 
@@ -37,7 +37,7 @@ flowchart LR
     H --> I
 ```
 
-The graph outcomes describe data quality; they do not authorize insurance coverage or payment. Normalization and deterministic/semantic validation are connected to the graph. Missing/invalid data, low confidence, warnings, and unavailable semantic checks require review. Provider failures remain typed failures rather than successful low-confidence results. See the [processing guide](docs/processing.md) for gates and transaction boundaries. A reviewer interface and durable HTTP processing remain unfinished.
+The graph outcomes describe data quality; they do not authorize insurance coverage or payment. Normalization and deterministic/semantic validation are connected to the graph. Missing/invalid data, low confidence, warnings, and unavailable semantic checks require review. Provider failures remain typed failures rather than successful low-confidence results. See the [processing guide](docs/processing.md) for gates and transaction boundaries. Durable HTTP enqueue/polling and a separate worker are implemented; the reviewer interface remains unfinished.
 
 ## Engineering highlights
 
@@ -80,22 +80,23 @@ The database connection reads `DATABASE_URL` when first used, and uploaded docum
 | `GET` | `/health/ready` | Authenticated database readiness probe. |
 | `POST` | `/claims/{claim_id}/documents` | Upload a bounded PDF/JPEG/PNG; returns 201. |
 | `GET` | `/documents/{document_id}` | Retrieve document metadata without exposing its storage path. |
-| `POST` | `/documents/{document_id}/extract` | Planned durable processing; currently returns 501. |
+| `POST` | `/documents/{document_id}/extract` | Enqueue durable processing; returns 202 and a job locator. |
+| `GET` | `/jobs/{job_id}` | Poll safe job state and failure metadata. |
 
-The FastAPI factory now mounts the routers. Claim and document endpoints work; extraction returns an explicit 501 placeholder until the durable worker ticket is complete. See the [API guide](docs/api.md) for startup, token configuration, and current behavior.
+The FastAPI factory now mounts the routers. Claim and document endpoints work; extraction queues a durable job for the separate worker. See the [API guide](docs/api.md) for startup, token configuration, and current behavior.
 
 ## Project status
 
 Implemented components demonstrate the extraction and validation design, but the repository is not yet an end-to-end runnable service. The remaining integration work includes:
 
-- Implement durable processing behind the application entry point and migrations.
-- Complete the normalized result pipeline and durable job integration; repaired ORM models and [versioned migrations](docs/database.md) provide the persistence foundation.
+- Expose persisted results and complete authorized reviewer actions.
+- Expose normalized result retrieval and reviewer audit APIs; repaired ORM models and [versioned migrations](docs/database.md) provide the persistence foundation.
 - Expand synthetic end-to-end and live-provider evaluation beyond the passing unit/persistence suite.
-- Complete durable worker integration and review handling for normalized processing results.
+- Complete review handling and audit presentation for normalized processing results.
 - Validate provider model configuration and Azure API compatibility with pinned dependencies.
 
 The current unit and PostgreSQL persistence tests pass without live providers. They do not establish end-to-end extraction accuracy. See [contributing](CONTRIBUTING.md) for CI, review, and integration requirements.
 
 ## Implementation roadmap
 
-The next milestone is the [end-to-end synthetic claim demo](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/1). See the [workflow contract](docs/m1-contracts.md), [architecture decision](docs/decisions/001-durable-processing.md), and [ticket checklist](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/16). These describe the implementation target; current behavior is summarized above.
+The next milestone is the [end-to-end synthetic claim demo](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/1). See the [workflow contract](docs/m1-contracts.md), [architecture decision](docs/decisions/001-durable-processing.md), and [ticket checklist](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/16). These describe the implementation target; current behavior is summarized above. See the [worker guide](docs/jobs.md) for durable processing, retries, and startup.

@@ -134,19 +134,24 @@ def test_internal_failure_rolls_back_and_redacts(api):
         assert db.scalar(select(func.count()).select_from(Claim)) == 0
 
 
-def test_readiness_and_unimplemented_document_routes(api):
+def test_readiness_and_job_routes_require_auth(api):
     client, _ = api
     assert client.get("/health/ready", headers=HEADERS).json() == {"status": "ready"}
-    for route in (f"/documents/{uuid4()}/extract",):
-        response = client.post(route, headers=HEADERS)
-        assert response.status_code == 501
-        assert "not_implemented" in response.json()["code"]
+    assert client.post(f"/documents/{uuid4()}/extract").status_code == 401
+    assert client.get(f"/jobs/{uuid4()}").status_code == 401
 
 
 def test_openapi_documents_contract(api):
     client, _ = api
     schema = client.get("/openapi.json").json()
     assert "/claims" in schema["paths"] and "/health/ready" in schema["paths"]
+    enqueue_schema = schema["paths"]["/documents/{document_id}/extract"]["post"]
+    assert "202" in enqueue_schema["responses"] and "501" not in enqueue_schema["responses"]
+    assert "Location" in enqueue_schema["responses"]["202"]["headers"]
+    assert "Retry-After" in enqueue_schema["responses"]["202"]["headers"]
+    projection = schema["components"]["schemas"]["JobResponse"]["properties"]
+    assert "error" in projection and "lease_owner" not in projection
+    assert "idempotency_key" not in projection and "error_code" not in projection
     response_schema = schema["paths"]["/claims"]["post"]["responses"]["201"]["content"][
         "application/json"
     ]["schema"]

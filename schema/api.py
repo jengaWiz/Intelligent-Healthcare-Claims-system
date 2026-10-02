@@ -4,7 +4,14 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    computed_field,
+    field_serializer,
+)
 
 
 class ClaimCreate(BaseModel):
@@ -58,3 +65,38 @@ class ErrorResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: Literal["ok", "ready"]
+
+
+class JobFailureResponse(BaseModel):
+    code: str
+    message: str
+
+
+class JobResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    job_id: UUID
+    document_id: UUID
+    state: Literal["QUEUED", "RUNNING", "RETRY_WAIT", "SUCCEEDED", "FAILED"]
+    attempts: int
+    max_attempts: int
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    next_attempt_at: datetime | None
+    error_code: str | None = Field(exclude=True)
+    error_message: str | None = Field(exclude=True)
+
+    @computed_field
+    @property
+    def error(self) -> JobFailureResponse | None:
+        if self.error_code is None:
+            return None
+        return JobFailureResponse(
+            code=self.error_code, message=self.error_message or "Processing failed"
+        )
+
+    @field_serializer("created_at", "started_at", "completed_at", "next_attempt_at")
+    def utc_job_timestamp(self, value: datetime | None):
+        if value is None:
+            return None
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)

@@ -105,6 +105,8 @@ with patch.object(socket.socket, 'connect', side_effect=AssertionError('network 
     import database.session
     import services.storage_service
     import agents.graphs.extraction_graph
+    import worker.runtime
+    import services.job_service
 """
     # A separate interpreter catches accidental side effects hidden by import caches.
     import os
