@@ -41,7 +41,12 @@ def require_token(
         raise APIError(401, "unauthorized", "Valid authentication is required")
     with request.app.state.get_session_factory()() as db:
         session = session_record(db, raw)
-        if session is None or session.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC):
+        expires = session.expires_at if session is not None else None
+        if expires is not None:
+            expires = (
+                expires.replace(tzinfo=UTC) if expires.tzinfo is None else expires.astimezone(UTC)
+            )
+        if expires is None or expires <= datetime.now(UTC):
             raise APIError(401, "unauthorized", "Session expired; sign in again")
         request.state.actor_id = session.actor_id
         request.state.csrf_token = session.csrf_token
