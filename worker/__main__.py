@@ -38,7 +38,8 @@ def main():
     from services.synthetic_processor import process_sample
 
     processor = process_sample if settings.synthetic_mode else run_extraction_pipeline
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
+    logging.getLogger("worker.runtime").setLevel(logging.INFO)
     stop = Event()
     for signum in (signal.SIGINT, signal.SIGTERM):
         signal.signal(signum, lambda *_: stop.set())

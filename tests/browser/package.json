@@ -1,0 +1,1 @@
+{"name":"claims-browser-checks","private":true,"scripts":{"test":"playwright test","format":"prettier --write ../../web"},"devDependencies":{"@playwright/test":"1.63.0","prettier":"3.9.9"}}

@@ -21,3 +21,6 @@ dist/
 .vscode/
 .idea/
 # Keep alembic.ini and migrations versioned.
+node_modules/
+tests/browser/test-results/
+tests/browser/playwright-report/
