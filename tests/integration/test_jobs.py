@@ -115,3 +115,84 @@ def test_missing_and_ineligible_document_rejected(jobs_db):
         with factory.begin() as db:
             enqueue(db, doc, Settings(_env_file=None))
     assert caught.value.status == 409
+
+
+def test_recovery_uses_new_owner_and_exhausts_crash_loop(jobs_db):
+    from datetime import datetime, timedelta, timezone
+
+    from services.job_lifecycle import acquire, heartbeat
+
+    factory, document = jobs_db
+    settings = Settings(_env_file=None, job_max_attempts=2)
+    with factory.begin() as db:
+        job_id = enqueue(db, document(), settings).job_id
+    with factory.begin() as db:
+        first = acquire(db, settings)
+        assert first.job_id == job_id and first.attempts == 1
+    with factory.begin() as db:
+        db.get(ProcessingJob, job_id).lease_expires_at = datetime.now(timezone.utc) - timedelta(
+            seconds=1
+        )
+    with factory.begin() as db:
+        second = acquire(db, settings)
+        assert second.owner != first.owner and second.attempts == 2
+    with factory.begin() as db:
+        assert not heartbeat(db, first, settings)
+        assert heartbeat(db, second, settings)
+        db.get(ProcessingJob, job_id).lease_expires_at = datetime.now(timezone.utc) - timedelta(
+            seconds=1
+        )
+    with factory.begin() as db:
+        assert acquire(db, settings) is None
+    with factory() as db:
+        job = db.get(ProcessingJob, job_id)
+        assert job.state == "FAILED" and job.attempts == 2
+        assert job.document.document_state == "FAILED"
+        assert job.document.claim.current_state == "FAILED"
+
+
+def test_transient_retry_waits_and_permanent_failure_stops(jobs_db):
+    from datetime import datetime, timedelta, timezone
+
+    from services.job_lifecycle import acquire, fail_attempt
+    from services.provider_errors import FailureCode, ProviderFailure
+
+    factory, document = jobs_db
+    settings = Settings(_env_file=None)
+    with factory.begin() as db:
+        job_id = enqueue(db, document(), settings).job_id
+    with factory.begin() as db:
+        lease = acquire(db, settings)
+    with factory.begin() as db:
+        fail_attempt(db, lease, ProviderFailure("ocr", FailureCode.RATE_LIMITED, True, 999))
+        job = db.get(ProcessingJob, job_id)
+        remaining = (job.next_attempt_at - datetime.now(timezone.utc)).total_seconds()
+        assert 58 < remaining <= 60
+        assert job.document.document_state == "QUEUED"
+    with factory.begin() as db:
+        assert acquire(db, settings) is None
+        db.get(ProcessingJob, job_id).next_attempt_at = datetime.now(timezone.utc) - timedelta(
+            seconds=1
+        )
+    with factory.begin() as db:
+        retry = acquire(db, settings)
+        assert retry.attempts == 2
+    with factory.begin() as db:
+        fail_attempt(db, retry, ProviderFailure("extraction", FailureCode.INVALID_RESPONSE))
+    with factory() as db:
+        assert db.get(ProcessingJob, job_id).state == "FAILED"
+
+
+def test_workers_skip_locked_jobs(jobs_db):
+    from services.job_lifecycle import acquire
+
+    factory, document = jobs_db
+    settings = Settings(_env_file=None)
+    for _ in range(2):
+        with factory.begin() as db:
+            enqueue(db, document(), settings)
+    with factory.begin() as first:
+        lease1 = acquire(first, settings)
+        with factory.begin() as second:
+            lease2 = acquire(second, settings)
+            assert lease1.job_id != lease2.job_id
