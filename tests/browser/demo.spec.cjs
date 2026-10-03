@@ -53,6 +53,14 @@ test('authenticated upload, correction, audit, rejection and safe failure retry'
   await expect(page.locator('#state')).toHaveText('REJECTED');
   await upload(page, 'failure');
   await expect(page.locator('#state')).toHaveText('FAILED', {timeout: 20000});
+  await page.getByRole('button', {name: 'Risk queue', exact: false}).click();
+  await expect(page.locator('.claim-row')).toHaveCount(1);
+  await expect(page.locator('.claim-row')).toContainText('LOW');
+  await page.getByLabel('Risk acknowledgment filter').selectOption('all');
+  await expect(page.locator('.claim-row')).toHaveCount(2);
+  await page.getByRole('button', {name: 'New document'}).click();
+  await page.getByRole('button', {name: 'My documents'}).click();
+  await page.locator('.claim-row').filter({hasText: 'FAILED'}).getByRole('button', {name: 'Open'}).click();
   await expect(page.getByRole('button', {name: 'Retry processing'})).toBeVisible();
   let releaseRetry;
   const retryGate = new Promise(resolve => { releaseRetry = resolve; });
@@ -97,4 +105,12 @@ test('risk explanations, HIGH acknowledgment, history and stale conflict recover
   await page.getByRole('button', {name: 'Record risk acknowledgment'}).click();
   await expect(page.locator('#risk-acknowledgment')).toContainText('Computed risk is unchanged');
   await expect(page.locator('#risk-level')).toHaveText('HIGH');
+  await page.getByRole('button', {name: 'Risk queue', exact: false}).click();
+  await expect(page.locator('.claim-row')).toHaveCount(0);
+  await page.getByLabel('Risk acknowledgment filter').selectOption('all');
+  await expect(page.locator('.claim-row')).toHaveCount(1);
+  await page.getByLabel('Risk level filter').selectOption('LOW');
+  await expect(page.locator('.claim-row')).toHaveCount(0);
+  await page.getByLabel('Risk level filter').selectOption('HIGH');
+  await expect(page.locator('.claim-row')).toHaveCount(1);
 });
