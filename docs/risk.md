@@ -109,3 +109,18 @@ Downgrading drops risk history and acknowledgments but retains M1 claims/documen
 Use paired backup and a compatible binary for rollback; it is not a lossless risk
 rollback. No historical assessment is backfilled. The SQL immutability triggers
 are PostgreSQL features; SQLite test metadata is not a deployment substitute.
+
+## Reassessment after document review
+
+Each successful document decision creates the matching assessment in the same
+transaction as the new reviewed data/version. A correction can change amount
+signals; human verification clears confidence/semantic uncertainty only. Rejection
+retains a final assessment snapshot and all earlier history, but blocks subsequent
+active refresh/acknowledgment. Assessment failure rolls back the review as well.
+
+The refresh service locks the current claim and reads the latest bounded review
+snapshot; it never falls back to original extraction when current reviewed data
+exists. Repeated unchanged refresh reuses the current assessment. Refresh leaves
+the document version unchanged, rejects missing/failed/in-flight sources and stale
+versions, and uses the stored extraction confidence as authoritative metadata.
+Protected HTTP exposure is still tracked in RT07.
