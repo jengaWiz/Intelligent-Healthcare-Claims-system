@@ -17,6 +17,25 @@ structured extraction, quality checks, and an audited reviewer workspace.
 
 </div>
 
+> [!IMPORTANT]
+> **Deployment choice: local Docker, no always-on cloud hosting.**
+>
+> This portfolio demo is intentionally distributed as a reproducible Docker Compose
+> deployment to avoid recurring cloud compute, database, and storage costs for an
+> intermittently used project. The default synthetic mode also avoids billable
+> Azure OCR and LLM requests, so reviewers can explore the workflow without provider accounts.
+>
+> **Deployment engineering is implemented and verified:** separate API/worker
+> containers, PostgreSQL and persistent uploads, pinned images, nonroot execution,
+> migration gates, health checks, restart recovery, and paired backup/restore.
+> CI exercises the container deployment; the [verification report](docs/verification/compose.json)
+> records the smoke, restart, restore, and retained-image redeploy checks.
+>
+> Start the [local demo](#run-the-demo) or browse the screenshots below.
+> The [deployment runbook](docs/deployment.md) documents operation and rollback.
+> A public deployment would additionally require a hosting target, HTTPS ingress,
+> and environment-specific configuration; those have not been provisioned or verified.
+
 ![Claim Studio results from an actual browser smoke check](docs/screenshots/results.png)
 
 ## What it does
