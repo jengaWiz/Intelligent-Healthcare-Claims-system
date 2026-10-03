@@ -9,6 +9,7 @@ from schema.api import ClaimResponse, JobResponse
 from schema.claim_data import ClaimData
 from schema.validation_result import ValidationResult
 from services.claim_service import get_claim
+from services.risk_assessment_service import publish
 
 
 def extraction(db, claim_id):
@@ -136,4 +137,5 @@ def decide(db, claim_id, payload, actor):
     claim.version += 1
     claim.current_state = "REJECTED" if payload.decision == "reject" else "READY"
     db.flush()
+    publish(db, claim, result, data, validation, human_verified=True)
     return result_projection(db, claim_id)
