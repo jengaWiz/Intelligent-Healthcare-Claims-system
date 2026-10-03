@@ -55,21 +55,41 @@ function signedOut() {
   $("login-panel").hidden = false;
   $("workspace").hidden = true;
   $("logout").hidden = true;
+  for (const name of ["upload", "queue", "recent", "risk"])
+    $(`nav-${name}`).disabled = true;
 }
 function signedIn() {
   $("login-panel").hidden = true;
   $("workspace").hidden = false;
   $("logout").hidden = false;
+  for (const name of ["upload", "queue", "recent", "risk"])
+    $(`nav-${name}`).disabled = false;
   show("upload");
 }
 function show(panel) {
+  const changedPanel = $(`${panel}-panel`).hidden;
+  $("page-title").textContent =
+    panel === "results"
+      ? "Document overview"
+      : panel === "list"
+        ? {
+            recent: "My documents",
+            queue: "Data review queue",
+            risk: "Risk investigation",
+          }[listMode]
+        : "Document workspace";
   for (const name of ["upload", "list", "results"])
     $(`${name}-panel`).hidden = name !== panel;
-  for (const name of ["upload", "queue", "recent", "risk"])
-    $(`nav-${name}`).classList.toggle(
-      "active",
-      name === panel || (panel === "list" && name === listMode),
-    );
+  for (const name of ["upload", "queue", "recent", "risk"]) {
+    const active =
+      name === panel ||
+      (panel === "list" && name === listMode) ||
+      (panel === "results" && name === "recent");
+    $(`nav-${name}`).classList.toggle("active", active);
+    if (active) $(`nav-${name}`).setAttribute("aria-current", "page");
+    else $(`nav-${name}`).removeAttribute("aria-current");
+  }
+  if (changedPanel) window.scrollTo({ top: 0, behavior: "instant" });
 }
 function node(tag, text, className) {
   const el = document.createElement(tag);
@@ -80,6 +100,7 @@ function node(tag, text, className) {
 async function action(button, operation) {
   if (busy) return;
   busy = true;
+  button.setAttribute("aria-busy", "true");
   button.disabled = true;
   $("logout").disabled = true;
   const mutations = document.querySelectorAll(
@@ -94,6 +115,7 @@ async function action(button, operation) {
     message(error.message, true);
   } finally {
     busy = false;
+    button.removeAttribute("aria-busy");
     button.disabled = false;
     $("logout").disabled = false;
     for (const control of mutations) control.disabled = false;
@@ -259,6 +281,7 @@ async function refresh() {
   $("state").textContent = state.replaceAll("_", " ");
   $("state").dataset.state = state;
   $("claim-reference").textContent = `Claim ${claimId} · version ${version}`;
+  $("claim-reference").title = `Claim ${claimId} · version ${version}`;
   $("result-title").textContent =
     state === "PROCESSING"
       ? "Extraction in progress"
@@ -281,8 +304,12 @@ async function refresh() {
       : "Upload and process a document to see extracted fields.";
   $("retry").hidden = state !== "FAILED" || !documentId;
   $("review-panel").hidden = state !== "REVIEW_REQUIRED";
+  $("review-shortcut").hidden = state !== "REVIEW_REQUIRED";
   $("fields").replaceChildren();
   $("issues").replaceChildren();
+  $("quality-count").textContent = result.current
+    ? `${result.current.validation.issues.length} ${result.current.validation.issues.length === 1 ? "ISSUE" : "ISSUES"}`
+    : "PENDING";
   if (result.current) {
     const data = result.current.data;
     const values = [
@@ -290,7 +317,10 @@ async function refresh() {
       ["Date of birth", data.patient.date_of_birth],
       ["Provider", data.provider.name],
       ["Service date", data.service.service_date],
-      ["Billed amount (USD)", data.billing.total_amount],
+      [
+        `Billed amount (${data.billing.currency})`,
+        formatAmount(data.billing.total_amount, data.billing.currency),
+      ],
     ];
     for (const [label, value] of values) {
       const row = node("div", "");
@@ -310,7 +340,13 @@ async function refresh() {
       $("issues").append(item);
     }
     if (!result.current.validation.issues.length)
-      $("issues").append(node("p", "No validation issues found."));
+      $("issues").append(
+        node(
+          "p",
+          "All data checks passed. No validation issues found.",
+          "validation-clear",
+        ),
+      );
     $("patient-name").value = data.patient.full_name || "";
     $("patient-dob").value = data.patient.date_of_birth || "";
     $("provider-name").value = data.provider.name || "";
@@ -357,6 +393,19 @@ async function refresh() {
       2000,
     );
 }
+function formatAmount(amount, currency) {
+  if (amount === null) return null;
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(amount));
+  } catch {
+    return String(amount);
+  }
+}
 function renderRisk(result) {
   const risk = result.risk;
   const newId = risk?.assessment_id || null;
@@ -372,6 +421,16 @@ function renderRisk(result) {
     ? risk.level.replaceAll("_", " ")
     : "Not assessed";
   $("risk-level").dataset.level = risk?.level || "";
+  $("risk-panel").dataset.level = risk?.level || "";
+  $("risk-summary").textContent = risk
+    ? {
+        LOW: "No review signals triggered under this limited policy.",
+        MEDIUM: "Review recommended · inspect the signals below.",
+        HIGH: "Investigation recommended · inspect the signals below.",
+        INSUFFICIENT_DATA:
+          "More evidence is needed before risk can be classified.",
+      }[risk.level]
+    : "Not assessed yet. This does not mean low risk.";
   $("risk-meta").textContent = risk
     ? `${risk.policy_version} · data version ${risk.claim_version} · assessed ${new Date(risk.assessed_at).toLocaleString()} · context captured ${new Date(risk.context_at).toLocaleString()}`
     : "No assessment exists for the current data. This does not mean low risk.";
@@ -379,22 +438,27 @@ function renderRisk(result) {
   for (const signal of risk?.signals || []) {
     const row = node("div", "", "issue");
     row.append(
-      node("strong", signal.code.replaceAll("_", " ")),
+      node(
+        "strong",
+        signal.code
+          .replaceAll("_", " ")
+          .replace(/^./, (letter) => letter.toUpperCase()),
+      ),
       node("p", signal.message),
       node("p", `Evidence: ${signal.evidence_fields.join(", ")}`, "muted"),
     );
     $("risk-signals").append(row);
   }
-  if (risk && !risk.signals.length)
-    $("risk-signals").append(
-      node("p", "No rule triggered under this limited policy."),
-    );
   const acknowledgment = result.risk_acknowledgment;
   $("risk-acknowledgment").textContent = acknowledgment
-    ? `Acknowledged by ${acknowledgment.actor_id}: ${acknowledgment.reason}. Computed risk is unchanged.`
+    ? `Investigation acknowledged: ${acknowledgment.reason}. Computed risk is unchanged.`
     : risk
       ? "This assessment has no risk acknowledgment."
       : "No assessment is available to acknowledge.";
+  $("risk-ack-meta").hidden = !acknowledgment;
+  $("risk-ack-meta").textContent = acknowledgment
+    ? `Acknowledged by ${acknowledgment.actor_id} at ${new Date(acknowledgment.created_at).toLocaleString()}`
+    : "";
   const editable = ["READY", "REVIEW_REQUIRED"].includes(result.claim.state);
   $("risk-refresh").hidden = !editable || !result.current;
   $("risk-ack-form").hidden = !editable || !risk || !!acknowledgment;
