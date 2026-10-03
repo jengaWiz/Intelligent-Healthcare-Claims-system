@@ -1,0 +1,7 @@
+{
+  "version": "risk-v1",
+  "currency": "USD",
+  "medium_amount": "10000",
+  "high_amount": "100000",
+  "confidence_threshold": 0.8
+}
