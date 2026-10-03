@@ -135,3 +135,27 @@ def test_deterministic_signals_and_no_patient_values_in_evidence():
 def test_invalid_policy_fails_closed(changes):
     with pytest.raises(ValidationError):
         RiskPolicy.model_validate({**load_policy().model_dump(), **changes})
+
+
+def test_incomplete_duplicate_context_never_implies_low_risk():
+    data = ClaimData.from_extracted_data(
+        {
+            "patient_name": "Synthetic",
+            "provider_name": "Clinic",
+            "service_date": "2026-10-01",
+            "total_amount": "42.50",
+            "confidence": 0.95,
+        }
+    )
+    result = assess(
+        data,
+        ValidationResult(is_valid=True, validation_score=1, semantic_status="completed"),
+        human_verified=False,
+        context=RiskContext(
+            duplicate_count=0, complete=False, fingerprint="b" * 64, captured_at=NOW
+        ),
+        assessed_at=NOW,
+        policy=load_policy(),
+    )
+    assert result.level == "INSUFFICIENT_DATA"
+    assert [item.code for item in result.signals] == ["duplicate_context_unavailable"]

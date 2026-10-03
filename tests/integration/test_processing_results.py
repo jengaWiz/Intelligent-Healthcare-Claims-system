@@ -6,7 +6,14 @@ import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
-from models import Claim, Document, ExtractionResult, ProcessingJob, ValidationOutcome
+from models import (
+    Claim,
+    Document,
+    ExtractionResult,
+    ProcessingJob,
+    RiskAssessment,
+    ValidationOutcome,
+)
 from schema.claim_data import ClaimData
 from schema.validation_result import ValidationResult
 from services.extraction_service import ProcessingConflict, persist_processing_result
@@ -97,6 +104,12 @@ def test_processing_result_reconstructs_exactly_and_advances_states(session, rea
     assert claim.current_state == restored.outcome and claim.version == 2
     assert doc.document_state == "EXTRACTED" and job.state == "SUCCEEDED"
     assert job.lease_owner is None
+    assessment = session.scalar(
+        select(RiskAssessment).where(RiskAssessment.extraction_id == restored.extraction_id)
+    )
+    assert assessment.claim_version == claim.version
+    assert assessment.level == "INSUFFICIENT_DATA"
+    assert "duplicate_context_unavailable" in {item["code"] for item in assessment.signals}
 
 
 @pytest.mark.parametrize("expired", [True, False])
@@ -106,6 +119,7 @@ def test_expired_or_foreign_lease_cannot_publish(session, expired):
     with pytest.raises(ProcessingConflict):
         persist_processing_result(session, job.job_id, owner, output())
     assert session.scalar(select(func.count()).select_from(ExtractionResult)) == 0
+    assert session.scalar(select(func.count()).select_from(RiskAssessment)) == 0
     assert job.state == "RUNNING" and doc.document_state == "PROCESSING"
     assert claim.version == 1
 
@@ -119,6 +133,7 @@ def test_failure_rolls_back_result_validation_and_all_states(session):
     session.expire_all()
     assert session.scalar(select(func.count()).select_from(ExtractionResult)) == 0
     assert session.scalar(select(func.count()).select_from(ValidationOutcome)) == 0
+    assert session.scalar(select(func.count()).select_from(RiskAssessment)) == 0
     assert job.state == "RUNNING" and doc.document_state == "PROCESSING"
     assert claim.current_state == "PROCESSING" and claim.version == 1
 
