@@ -14,5 +14,5 @@
     "paired_restore_preserves_risk_history_ack_and_legacy_data",
     "retained_image_redeploy_rollback_rehearsal"
   ],
-  "elapsed_seconds": 65.95
+  "elapsed_seconds": 67.21
 }
