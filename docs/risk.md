@@ -1,8 +1,9 @@
 # Explainable risk triage contract
 
 Status: policy, engine, persistence, worker/review integration and scoped duplicate
-context implemented. HTTP routes and reviewer interface are delivered by later
-tickets. See the [implementation plan](risk-triage-plan.md).
+context and protected risk history/refresh/acknowledgment routes implemented.
+The reviewer interface and risk queue are delivered by later tickets.
+See the [implementation plan](risk-triage-plan.md).
 
 Risk is priority for human investigation, not fraud probability, coverage,
 medical necessity or payment approval. It is independent of document status:
@@ -72,9 +73,10 @@ means evaluation ran and found insufficient evidence. Legacy upgrade performs no
 automatic LOW backfill. Assessment publication is atomic with successful extraction
 or data review; stale workers cannot publish assessments.
 
-## Planned HTTP API
+## HTTP API
 
-These routes are contracts for RT07, not currently registered endpoints.
+Results/history/refresh/acknowledgment are registered endpoints. The separate risk
+queue is planned in RT09.
 
 | Route | Request / response |
 | --- | --- |
@@ -124,7 +126,7 @@ snapshot; it never falls back to original extraction when current reviewed data
 exists. Repeated unchanged refresh reuses the current assessment. Refresh leaves
 the document version unchanged, rejects missing/failed/in-flight sources and stale
 versions, and uses the stored extraction confidence as authoritative metadata.
-Protected HTTP exposure is still tracked in RT07.
+Protected HTTP routes expose these operations with existing workspace/CSRF checks.
 
 ## Exact-document context
 

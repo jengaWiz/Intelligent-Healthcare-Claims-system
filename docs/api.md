@@ -48,6 +48,23 @@ See [access handling](access.md) and [the local Docker setup](deployment.md).
 
 ## Verification
 
+## Explainable risk review
+
+Results include nullable `risk` and `risk_acknowledgment`. Null means not assessed;
+INSUFFICIENT_DATA means an assessment ran without sufficient evidence. Risk is
+independent of claim state; a READY/HIGH claim can be acknowledged without
+changing its data or level. Internal fingerprints and peer identifiers are omitted.
+
+- `GET /claims/{id}/risk`: bounded assessment history, limit 1–100 (default 20), offset >= 0.
+- `POST /claims/{id}/risk/refresh`: `{ "expected_version": 3 }`; returns the current assessment.
+- `POST /claims/{id}/risk/acknowledgments`: expected_version, current assessment_id and reason (1–2000 chars); actor comes from authentication.
+
+Cookie mutations require exact Origin and CSRF. Cross-workspace reads/mutations
+return 404; stale data/assessment IDs return 409. Acknowledgment is immutable and
+does not transfer to a new assessment. See [policy and error contracts](risk.md).
+
+## HTTP verification
+
 Unit HTTP tests use an isolated SQLite claim table; PostgreSQL HTTP integration
 tests use the migrated `TEST_DATABASE_URL` database with per-test rollback.
 They verify POST persistence across sessions, GET/404/422 behavior, auth ordering,

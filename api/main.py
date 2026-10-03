@@ -17,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from starlette.exceptions import HTTPException
 
-from api import auth, claims, demo, documents, health, jobs, reviews
+from api import auth, claims, demo, documents, health, jobs, reviews, risk
 from api.auth import LoginLimiter
 from api.dependencies import APIError
 from api.error_boundary import SafeErrorBoundary
@@ -145,4 +145,5 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
     app.include_router(health.router)
     app.include_router(jobs.router)
     app.include_router(reviews.router)
+    app.include_router(risk.router)
     return app

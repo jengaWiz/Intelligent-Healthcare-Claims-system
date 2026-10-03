@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 from schema.api import ClaimResponse, JobResponse
 from schema.claim_data import ClaimData
+from schema.risk import RiskAcknowledgmentResponse, RiskAssessmentResponse
 from schema.validation_result import ValidationResult
 
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -82,3 +83,5 @@ class ResultsResponse(BaseModel):
     extraction: ExtractionResponse | None
     current: Snapshot | None
     reviews: list[AuditResponse]
+    risk: RiskAssessmentResponse | None = None
+    risk_acknowledgment: RiskAcknowledgmentResponse | None = None
