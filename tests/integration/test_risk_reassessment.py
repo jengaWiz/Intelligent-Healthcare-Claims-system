@@ -54,6 +54,7 @@ def test_correction_reassessment_refresh_and_original_evidence(jobs_db):
         second = risk_storage.current(db, claim_id)
         assert second.claim_version == version + 1
         assert "amount_high" in {item.code for item in second.signals}
+        assert second.level == "HIGH"
         assert "unverified_extraction" not in {item.code for item in second.signals}
         assert second.assessment_id != first.assessment_id
         assert (

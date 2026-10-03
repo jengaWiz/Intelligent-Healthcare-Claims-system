@@ -113,8 +113,8 @@ def test_processing_result_reconstructs_exactly_and_advances_states(session, rea
         select(RiskAssessment).where(RiskAssessment.extraction_id == restored.extraction_id)
     )
     assert assessment.claim_version == claim.version
-    assert assessment.level == "INSUFFICIENT_DATA"
-    assert "duplicate_context_unavailable" in {item["code"] for item in assessment.signals}
+    assert assessment.level == ("HIGH" if ready else "INSUFFICIENT_DATA")
+    assert "duplicate_context_unavailable" not in {item["code"] for item in assessment.signals}
 
 
 def test_assessment_error_rolls_back_successful_extraction(session):
