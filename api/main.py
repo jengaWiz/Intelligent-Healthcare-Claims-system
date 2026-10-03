@@ -58,7 +58,7 @@ def create_app(settings: Settings | None = None, *, session_factory=None) -> Fas
             if engine is not None:
                 engine.dispose()
 
-    app = FastAPI(title="Intelligent Healthcare Claims System", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Intelligent Healthcare Claims System", version="0.2.0", lifespan=lifespan)
     app.add_middleware(RequestSizeMiddleware)
     app.add_middleware(UploadSizeMiddleware, max_upload_bytes=settings.max_upload_bytes)
     app.add_middleware(SafeErrorBoundary)
