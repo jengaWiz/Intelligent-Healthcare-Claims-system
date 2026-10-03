@@ -34,10 +34,12 @@ def pdf(lines):
 def main():
     root = Path(__file__).resolve().parents[1] / "samples"
     scenarios = {}
-    for name, outcome, amount, confidence in [
-        ("valid", "READY", "42.50", 0.95),
-        ("review", "REVIEW_REQUIRED", None, 0.55),
-        ("failure", "FAILED", None, None),
+    for name, outcome, amount, confidence, risk in [
+        ("valid", "READY", "42.50", 0.95, "LOW"),
+        ("review", "REVIEW_REQUIRED", None, 0.55, "INSUFFICIENT_DATA"),
+        ("failure", "FAILED", None, None, None),
+        ("medium", "READY", "10001", 0.95, "MEDIUM"),
+        ("high", "REVIEW_REQUIRED", "100001", 0.95, "HIGH"),
     ]:
         raw = {
             "patient_name": "Synthetic Example",
@@ -66,11 +68,24 @@ def main():
             "file": f"{name}.pdf",
             "sha256": sha256(data).hexdigest(),
             "expected_state": outcome,
+            "expected_risk": risk,
             "extracted": raw,
         }
+    scenarios["duplicate"] = {
+        **scenarios["valid"],
+        "expected_risk": "HIGH",
+        "requires_prior": "valid",
+        "note": "Upload identical valid.pdf bytes again in the same workspace; possible duplicate document only.",
+    }
     (root / "manifest.json").write_text(
         json.dumps(
-            {"version": "m1-corpus-1", "synthetic_only": True, "scenarios": scenarios}, indent=2
+            {
+                "version": "risk-corpus-1",
+                "reference_date": "2026-10-03",
+                "synthetic_only": True,
+                "scenarios": scenarios,
+            },
+            indent=2,
         )
         + "\n"
     )
