@@ -37,12 +37,27 @@ Fixture mode (`SYNTHETIC_MODE=true`) accepts only byte-identical versioned sampl
 from `samples/manifest.json`. It does not call Azure or an LLM. Complete, missing
 amount/low-confidence, and permanent provider-failure scenarios are labeled.
 Live mode (`false`, default outside compose) uses the configured providers; its
-actual behavior is not claimed by fixture checks. Corpus dates are fixed to
-2026-10-01; deterministic age/date rules will eventually flag those dates as old.
+actual behavior is not claimed by fixture checks. Synthetic date validation uses the manifest reference date recorded in provenance;
+live processing uses the actual date.
 
 The interface uses plain HTML/CSS/JavaScript served by FastAPI, bounded forms,
 keyboard-accessible controls, visible loading/failed states, and textContent for
 untrusted output. CSP permits only same-origin assets and forbids framing.
+
+## Review workspace layout
+
+The document summary shows processing state and links directly to the data review
+when a decision is needed. Desktop results place extracted data, validation and
+review evidence on the left, with risk investigation and data decisions on the
+right. Mobile stacks those sections and keeps all four navigation choices visible.
+Amounts use currency formatting for display; stored values and review inputs retain
+exact decimal semantics. Policy timestamps and acknowledgment actor details remain
+available under **Policy & assessment details**. Raw before/after audit snapshots
+use a bounded scroll area so opening evidence does not overwhelm the workspace.
+
+Keyboard focus is visible, active navigation uses `aria-current`, busy submissions
+use `aria-busy`, and signed-out workspace controls are disabled. Screenshots are
+captured at a consistent 1440px desktop width with the page at the top.
 
 ## Browser verification
 
@@ -55,9 +70,11 @@ uv run --locked python -m scripts.check_browser
 ```
 
 The launcher starts separate API and worker processes on loopback port 8047 and
-runs Chromium through login, upload, complete results, correction/audit, rejection,
-failure/retry, listing, and logout. Its dedicated test DB must not contain
-real/user data. It removes demo smoke records and session rows after completion.
+runs four Chromium workflows covering login, upload, complete results,
+correction/audit, rejection, failure/retry, scoped duplicates, risk investigation,
+and logout. The mobile workflow checks investigation/acknowledgment, data approval,
+queue navigation, and horizontal overflow at 390px. Its dedicated test DB must
+not contain real/user data. It removes demo smoke records and session rows after completion.
 Screenshots show this actual fixture flow, not a proposed interface:
 
 ![Results](screenshots/results.png)
