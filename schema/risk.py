@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from schema.api import ClaimResponse
+
 RiskLevel = Literal["LOW", "MEDIUM", "HIGH", "INSUFFICIENT_DATA"]
 ReasonCode = Literal[
     "missing_patient_name",
@@ -105,5 +107,17 @@ class RiskAcknowledgmentResponse(RiskContract):
 
 class RiskHistoryResponse(RiskContract):
     items: list[RiskAssessmentResponse] = Field(max_length=100)
+    limit: int = Field(ge=1, le=100)
+    offset: int = Field(ge=0)
+
+
+class RiskQueueItem(RiskContract):
+    claim: ClaimResponse
+    risk: RiskAssessmentResponse
+    acknowledgment: RiskAcknowledgmentResponse | None
+
+
+class RiskQueueResponse(RiskContract):
+    items: list[RiskQueueItem] = Field(max_length=100)
     limit: int = Field(ge=1, le=100)
     offset: int = Field(ge=0)
