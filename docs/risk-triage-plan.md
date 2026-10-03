@@ -1,6 +1,7 @@
 # Explainable claim risk triage — implementation plan
 
-Status: planned; no risk-classification functionality is delivered by this document.
+Status: implementation in progress. M2 contracts, rule engine and persistence are integrated;
+worker, review and interface delivery is tracked below.
 This extends the local synthetic demo independently of outstanding M1 live-provider
 evaluation. No hosting, provider spending, new agents, or predictive model is required.
 
@@ -220,9 +221,9 @@ reviewer can reproduce all risk scenarios without cloud accounts or fees.
 
 ### [M2 — Risk contracts and assessment foundation](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/2)
 
-- [ ] [#35 — RT01: Specify risk policy and public contracts](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/35)
-- [ ] [#36 — RT02: Implement deterministic assessment engine](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/36)
-- [ ] [#37 — RT03: Add immutable assessment and acknowledgment persistence](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/37)
+- [x] [#35 — RT01: Specify risk policy and public contracts](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/35)
+- [x] [#36 — RT02: Implement deterministic assessment engine](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/36)
+- [x] [#37 — RT03: Add immutable assessment and acknowledgment persistence](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/37)
 
 ### [M3 — Processing, correction and duplicate integration](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/3)
 
