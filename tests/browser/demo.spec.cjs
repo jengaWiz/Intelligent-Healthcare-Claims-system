@@ -1,6 +1,16 @@
 const {test, expect} = require('@playwright/test');
 const path = require('path');
+test.use({viewport: {width: 1440, height: 1000}});
+
 const sample = name => path.resolve(__dirname, `../../samples/${name}.pdf`);
+
+async function screenshotWorkspace(page, name) {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  await page.setViewportSize({width: 1440, height: Math.min(height, 1600)});
+  await page.screenshot({path: path.resolve(__dirname, `../../docs/screenshots/${name}.png`), fullPage: false});
+  await page.setViewportSize({width: 1440, height: 1000});
+}
 
 async function upload(page, name) {
   await page.getByRole('button', {name: 'New document'}).click();
@@ -15,10 +25,11 @@ test('authenticated upload, correction, audit, rejection and safe failure retry'
   await expect(page.getByRole('heading', {name: 'Welcome to Claim Studio'})).toBeVisible();
   await page.getByLabel('Demo password').fill(process.env.BROWSER_PASSWORD || 'browser-synthetic-only');
   await page.getByRole('button', {name: 'Open workspace'}).click();
-  await expect(page.getByRole('heading', {name: 'Start with a synthetic document'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: /A little less paperwork/})).toBeVisible();
   await upload(page, 'valid');
   await expect(page.locator('#state')).toHaveText('READY', {timeout: 20000});
   await expect(page.locator('#risk-level')).toHaveText('LOW');
+  await screenshotWorkspace(page, 'results');
   await page.getByLabel('Reason for risk acknowledgment').fill('Checked the synthetic evidence.');
   await page.getByRole('button', {name: 'Record risk acknowledgment'}).click();
   await expect(page.locator('#risk-acknowledgment')).toContainText('Computed risk is unchanged');
@@ -26,7 +37,6 @@ test('authenticated upload, correction, audit, rejection and safe failure retry'
   await expect(page.locator('#risk-level')).toHaveText('LOW');
   await expect(page.locator('#fields')).toContainText('42.50');
   await expect(page.locator('#reasoning')).toContainText('no live OCR');
-  await page.screenshot({path: path.resolve(__dirname, '../../docs/screenshots/results.png'), fullPage: true});
   await upload(page, 'review');
   await expect(page.locator('#state')).toHaveText('REVIEW REQUIRED', {timeout: 20000});
   await expect(page.locator('#risk-level')).toHaveText('INSUFFICIENT DATA');
@@ -40,7 +50,7 @@ test('authenticated upload, correction, audit, rejection and safe failure retry'
   await expect(page.locator('#history')).toContainText('CORRECT');
   await page.locator('#history summary').click();
   await expect(page.locator('#history pre')).toContainText('48.75');
-  await page.screenshot({path: path.resolve(__dirname, '../../docs/screenshots/review.png'), fullPage: true});
+  await screenshotWorkspace(page, 'review');
   const stranger = await browser.newContext();
   const response = await stranger.request.get('/claims');
   expect(response.status()).toBe(401);
@@ -108,7 +118,7 @@ test('versioned risk corpus, exact duplicates and snapshot refresh', async ({pag
   await upload(page, 'high');
   await expect(page.locator('#state')).toHaveText('REVIEW REQUIRED', {timeout: 20000});
   await expect(page.locator('#risk-level')).toHaveText('HIGH');
-  await page.screenshot({path: path.resolve(__dirname, '../../docs/screenshots/risk.png'), fullPage: true});
+  await screenshotWorkspace(page, 'risk');
   await upload(page, 'review');
   await expect(page.locator('#state')).toHaveText('REVIEW REQUIRED', {timeout: 20000});
   await expect(page.locator('#risk-level')).toHaveText('INSUFFICIENT DATA');
@@ -149,4 +159,34 @@ test('risk explanations, HIGH acknowledgment, history and stale conflict recover
   await expect(page.locator('.claim-row')).toHaveCount(0);
   await page.getByLabel('Risk level filter').selectOption('HIGH');
   await expect(page.locator('.claim-row')).toHaveCount(1);
+});
+
+
+test('mobile reviewer can investigate, acknowledge and approve without horizontal overflow', async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto('/demo');
+  await page.getByLabel('Demo password').fill(process.env.BROWSER_PASSWORD || 'browser-synthetic-only');
+  await page.getByRole('button', {name: 'Open workspace'}).click();
+  await upload(page, 'high');
+  await expect(page.locator('#risk-level')).toHaveText('HIGH', {timeout: 20000});
+  await expect(page.locator('#fields')).toContainText('$100,001.00');
+  await page.getByRole('link', {name: 'Review document'}).click();
+  await expect(page.locator('#review-panel')).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByLabel('Reason for risk acknowledgment').fill('Investigated synthetic high amount on mobile.');
+  await page.getByRole('button', {name: 'Record risk acknowledgment'}).click();
+  await expect(page.locator('#risk-acknowledgment')).toContainText('Computed risk is unchanged');
+  await page.getByLabel('Reason for your decision').fill('Verified the synthetic document data.');
+  await page.getByRole('button', {name: 'Save review decision'}).click();
+  await expect(page.locator('#state')).toHaveText('READY');
+  await expect(page.locator('#risk-level')).toHaveText('HIGH');
+  await page.getByRole('button', {name: 'Risk queue', exact: true}).click();
+  await expect(page.locator('.claim-row')).toHaveCount(1);
+  await expect(page.getByRole('button', {name: 'Risk queue', exact: true})).toHaveAttribute('aria-current', 'page');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('.claim-row').getByRole('button', {name: 'Open'}).click();
+  await page.getByText('Policy & assessment details', {exact: true}).click();
+  await expect(page.locator('#risk-meta')).toBeVisible();
+  await page.getByRole('button', {name: 'Sign out'}).click();
+  await expect(page.getByRole('heading', {name: 'Welcome to Claim Studio'})).toBeVisible();
 });
