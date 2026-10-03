@@ -3,7 +3,8 @@
 Status: policy, engine, persistence, worker/review integration and scoped duplicate
 context and protected risk history/refresh/acknowledgment routes implemented.
 The results interface displays level, explanations, policy/data/context timestamps,
-refresh, acknowledgment and paginated history. The risk queue is delivered by RT09.
+refresh, acknowledgment and paginated history. The separate risk queue supports
+level/acknowledgment filtering and SQL pagination.
 See the [implementation plan](risk-triage-plan.md).
 
 Risk is priority for human investigation, not fraud probability, coverage,
@@ -76,8 +77,7 @@ or data review; stale workers cannot publish assessments.
 
 ## HTTP API
 
-Results/history/refresh/acknowledgment are registered endpoints. The separate risk
-queue is planned in RT09.
+All listed routes are registered endpoints.
 
 | Route | Request / response |
 | --- | --- |
@@ -141,3 +141,16 @@ The fingerprint records the eligible peer set, not just its count. Later arrival
 deactivation or rejection changes the context on explicit refresh; it does not
 rewrite earlier assessments. If a context returns to an earlier value, the new
 revision still receives a new identity and does not revive an old acknowledgment.
+
+## Prioritized risk queue
+
+The default queue shows current unacknowledged assessments for active READY or
+REVIEW_REQUIRED claims in the authenticated workspace. Filter by level or select
+all/acknowledged assessments. Priority is HIGH, MEDIUM, INSUFFICIENT_DATA, LOW,
+then assessment time and claim ID. The latest revision, matching claim version,
+filters, acknowledgment and pagination are resolved in one SQL query.
+
+Rejected/inactive claims, obsolete assessment versions and unassessed legacy rows
+are excluded. Ordinary My documents remains unchanged; an absent queue item does
+not mean LOW. A new assessment returns to the unacknowledged queue without erasing
+the earlier acknowledgment. Pagination is stable for an unchanged dataset.
