@@ -144,6 +144,13 @@ revision still receives a new identity and does not revive an old acknowledgment
 
 ## Prioritized risk queue
 
+The versioned [corpus](../samples/manifest.json) includes all four levels, a
+simulated failure and a byte-identical duplicate sequence. Fixture validation and
+review use the recorded 2026-10-03 reference date; live validation uses the current
+date. The [conformance report](verification/risk.json) records rule expectations,
+not fraud accuracy. Real PostgreSQL/Chromium checks independently verify ownership,
+concurrent completion, correction, refresh, acknowledgment and queue behavior.
+
 The default queue shows current unacknowledged assessments for active READY or
 REVIEW_REQUIRED claims in the authenticated workspace. Filter by level or select
 all/acknowledged assessments. Priority is HIGH, MEDIUM, INSUFFICIENT_DATA, LOW,
