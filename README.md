@@ -14,7 +14,7 @@ A runnable synthetic healthcare document demo with durable background processing
 structured extraction, quality checks, explainable risk classification, and an
 audited reviewer workspace.
 
-[Run the demo](#run-the-demo) · [Architecture](#architecture) · [Engineering](#engineering-highlights) · [Verification](#verification-and-limits)
+[Run the demo](#run-the-demo) · [Risk classification](#explainable-risk-classification) · [Architecture](#architecture) · [Engineering](#engineering-highlights) · [Verification](#verification-and-limits)
 
 </div>
 
@@ -46,10 +46,42 @@ normalized fields and quality issues, and correct or reject records that need
 human review. The original extraction remains intact, with each review retaining
 actor, reason, timestamp, version, and before/after values.
 
-Every successful extraction receives a versioned **LOW, MEDIUM, HIGH, or
-INSUFFICIENT_DATA** assessment. Reviewers see the triggered rules, refresh duplicate
-context, investigate a prioritized risk queue, and acknowledge a specific assessment
-with a reason. Corrections create new assessments while preserving prior evidence.
+**READY means document data is ready.** It does not authorize insurance coverage
+or payment. This project uses synthetic documents and makes no production
+compliance claim.
+
+## Explainable risk classification
+
+Every successful extraction receives a **LOW, MEDIUM, HIGH, or INSUFFICIENT_DATA**
+assessment from the versioned `risk-v1` rules engine. Each assessment records the
+triggered reasons, evidence field paths, policy version, data version, and timestamps
+so a reviewer can understand why a claim needs attention.
+
+| Classification | What triggers it under the demo policy |
+| --- | --- |
+| **LOW** | Complete, supported evidence with no triggered risk rule. |
+| **MEDIUM** | A billed USD amount above $10,000 and at most $100,000. |
+| **HIGH** | A billed USD amount above $100,000, or identical document bytes on another active, non-rejected claim in the same workspace. |
+| **INSUFFICIENT_DATA** | Missing or invalid required data, unverified extraction evidence, unsupported currency, or unavailable duplicate context. |
+
+Insufficient evidence takes precedence over a level; any known amount or duplicate
+signals remain visible. Amount thresholds are illustrative portfolio rules.
+**Risk means priority for human investigation**, not fraud probability. LOW does
+not establish absence of fraud, and accepting document data does not clear risk.
+
+- **Prioritized investigation:** a separate risk queue orders HIGH, MEDIUM,
+  INSUFFICIENT_DATA, then LOW, with level and acknowledgment filters.
+- **Traceable reassessment:** processing and corrections save assessments
+  atomically; new assessments preserve immutable history and prior evidence.
+- **Scoped duplicate detection:** exact-document matches stay within the owner's
+  workspace. Explicit refresh captures later arrivals without rewriting old snapshots.
+- **Independent acknowledgment:** reviewers record a reason against the current
+  assessment. It does not change the level or carry over to a new assessment.
+
+**Try it in the demo:** upload the High risk sample, accept its extracted data,
+and confirm the document becomes READY while risk remains HIGH. Record a separate
+risk acknowledgment, then inspect the assessment history. Upload the Complete
+claim twice to explore the duplicate signal and refresh the first claim's snapshot.
 
 <details>
 <summary>See the high-risk investigation workflow</summary>
@@ -58,13 +90,8 @@ with a reason. Corrections create new assessments while preserving prior evidenc
 
 </details>
 
-Risk is **human review priority** under an illustrative rules policy. It is not a
-fraud probability; LOW does not establish absence of fraud. Data approval and risk
-investigation are separate, so a READY claim can remain HIGH risk.
-
-**READY means document data is ready.** It does not authorize insurance coverage
-or payment. This project uses synthetic documents and makes no production
-compliance claim.
+[Policy and API details](docs/risk.md) · [Risk release](docs/releases/risk-v1.md) ·
+[Synthetic rule verification](docs/verification/risk.json)
 
 ## Run the demo
 
