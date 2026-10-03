@@ -19,6 +19,27 @@ def backup(project, directory):
     # All writes must stop so the database and volume share a consistent point.
     subprocess.run([*command, "stop", "api", "worker"], check=True)
     try:
+        revision = subprocess.run(
+            [
+                *command,
+                "exec",
+                "-T",
+                "db",
+                "psql",
+                "-U",
+                "claims",
+                "-d",
+                "claims",
+                "-At",
+                "-c",
+                "SELECT version_num FROM alembic_version",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        if not revision or "\n" in revision:
+            raise ValueError("Backup requires exactly one migrated schema revision")
         with (directory / "database.dump").open("xb") as stream:
             os.chmod(directory / "database.dump", 0o600)
             subprocess.run(
@@ -52,7 +73,7 @@ def backup(project, directory):
             "created_at": datetime.now(UTC).isoformat(),
             "project": project,
             "sha256": files,
-            "schema": "b61ceaf00211",
+            "schema": revision,
         }
         (directory / "manifest.json").write_text(json.dumps(metadata, indent=2) + "\n")
         os.chmod(directory / "manifest.json", 0o600)
