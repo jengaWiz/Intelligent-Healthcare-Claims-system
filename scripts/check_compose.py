@@ -67,15 +67,51 @@ def main():
         return claim["claim_id"], doc["document_id"], job["job_id"]
 
     try:
+        # Upgrade an existing M1 dataset, not just an empty current-schema DB.
+        subprocess.run([*command, "up", "-d", "--wait", "db"], check=True)
+        subprocess.run(
+            [*command, "run", "--rm", "migrate", "alembic", "upgrade", "b61ceaf00211"], check=True
+        )
+        seeded = subprocess.run(
+            [
+                *command,
+                "run",
+                "--rm",
+                "--no-deps",
+                "api",
+                "python",
+                "-m",
+                "scripts.seed_m1_upgrade",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        legacy = json.loads(seeded.stdout)["claim_id"]
         subprocess.run([*command, "up", "-d", "--wait", "--wait-timeout", "90"], check=True)
         assert request("/health/ready")["status"] == "ready"
         checks.append("controlled_migrations_and_readiness")
+        old = request(f"/claims/{legacy}/results")
+        assert old["claim"]["version"] == 3 and len(old["reviews"]) == 1
+        assert old["risk"] is None and old["current"]["data"]["billing"]["total_amount"] == "42.50"
+        checks.append("m1_existing_results_migrate_without_risk_backfill")
         valid, valid_doc, _ = upload("valid")
         complete = poll(valid, "READY")
         assert complete["current"]["data"]["billing"]["total_amount"] == "42.50"
         checks.append("successful_fixture_extraction")
+        assert complete["risk"]["level"] == "LOW"
+        acknowledgment = request(
+            f"/claims/{valid}/risk/acknowledgments",
+            "POST",
+            {
+                "expected_version": complete["claim"]["version"],
+                "assessment_id": complete["risk"]["assessment_id"],
+                "reason": "Synthetic container risk investigation",
+            },
+        )
         review, _, _ = upload("review")
         pending = poll(review, "REVIEW_REQUIRED")
+        assert pending["risk"]["level"] == "INSUFFICIENT_DATA"
         corrected = request(
             f"/claims/{review}/reviews",
             "POST",
@@ -93,6 +129,7 @@ def main():
             },
         )
         assert corrected["claim"]["state"] == "READY" and len(corrected["reviews"]) == 1
+        assert corrected["risk"]["level"] == "LOW"
         checks.append("missing_amount_low_confidence_correction_audit")
         failed, failed_doc, previous_job = upload("failure")
         assert poll(failed, "FAILED")["job"]["error"]["code"] == "invalid_provider_response"
@@ -112,10 +149,22 @@ def main():
         else:
             raise AssertionError("API restart did not preserve queued job")
         subprocess.run([*command, "start", "worker"], check=True)
-        poll(queued, "READY")
+        queued_result = poll(queued, "READY")
+        assert queued_result["risk"]["level"] == "HIGH"
+        assert "possible_duplicate_document" in {
+            item["code"] for item in queued_result["risk"]["signals"]
+        }
         checks.append("api_worker_restart_queue_durability")
-        # All four accepted uploaded files must still exist and match metadata.
-        verify = "from sqlalchemy import create_engine,select;from sqlalchemy.orm import Session;from config.settings import Settings;from models import Document;from pathlib import Path;from hashlib import sha256;s=Settings();db=Session(create_engine(s.require_database_url()));docs=db.scalars(select(Document)).all();assert len(docs)==4;assert all(sha256(Path(d.storage_path).read_bytes()).hexdigest()==d.sha256 for d in docs)"
+        assert request(f"/claims/{valid}/results")["risk_acknowledgment"] == acknowledgment
+        assert request(f"/claims/{valid}/results")["risk"] == complete["risk"]
+        checks.append("risk_history_acknowledgment_survive_restart")
+        medium, _, _ = upload("medium")
+        assert poll(medium, "READY")["risk"]["level"] == "MEDIUM"
+        high, _, _ = upload("high")
+        assert poll(high, "REVIEW_REQUIRED")["risk"]["level"] == "HIGH"
+        checks.append("risk_levels_and_scoped_exact_duplicate_signal")
+        # All seven files, including the legacy fixture, must survive intact.
+        verify = "from sqlalchemy import create_engine,select;from sqlalchemy.orm import Session;from config.settings import Settings;from models import Document,RiskAssessment,RiskAcknowledgment;from pathlib import Path;from hashlib import sha256;s=Settings();db=Session(create_engine(s.require_database_url()));docs=db.scalars(select(Document)).all();assert len(docs)==7;assert all(sha256(Path(d.storage_path).read_bytes()).hexdigest()==d.sha256 for d in docs);assert len(db.scalars(select(RiskAssessment)).all())==6;assert len(db.scalars(select(RiskAcknowledgment)).all())==1"
         subprocess.run([*command, "exec", "-T", "api", "python", "-c", verify], check=True)
         with tempfile.TemporaryDirectory(prefix="claims-backup-") as directory:
             target = Path(directory) / "paired"
@@ -125,10 +174,14 @@ def main():
             restore_to_fresh_project(restored, target)
             assert request(f"/claims/{valid}/results")["current"] == complete["current"]
             assert len(request(f"/claims/{review}/reviews")) == 1
+            assert request(f"/claims/{valid}/results")["risk"] == complete["risk"]
+            assert request(f"/claims/{valid}/results")["risk_acknowledgment"] == acknowledgment
+            assert request(f"/claims/{legacy}/results")["risk"] is None
             subprocess.run(
                 [*restore_command, "exec", "-T", "api", "python", "-c", verify], check=True
             )
             checks.append("paired_database_upload_restore_preserves_audit")
+            checks.append("paired_restore_preserves_risk_history_ack_and_legacy_data")
         # Rehearse choosing the retained immutable image ID instead of a mutable tag.
         image = subprocess.run(
             [*restore_command, "images", "-q", "api"], capture_output=True, text=True, check=True
