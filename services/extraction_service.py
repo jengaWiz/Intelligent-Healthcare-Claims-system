@@ -11,6 +11,7 @@ from models.extraction_result import ExtractionResult
 from models.job import ProcessingJob
 from models.validation import ValidationOutcome
 from services.processing import ProcessingResult
+from services.risk_assessment_service import publish
 
 
 class ProcessingConflict(ValueError):
@@ -62,6 +63,7 @@ def persist_processing_result(
         raise ProcessingConflict("Document and claim must be processing")
     if job.lease_expires_at <= db.scalar(select(func.clock_timestamp())):
         raise ProcessingConflict("Job lease expired while acquiring locks")
+    deadline = job.lease_expires_at
     threshold = output.provenance["confidence_threshold"]
     ready = (
         output.confidence >= threshold
@@ -103,4 +105,7 @@ def persist_processing_result(
     job.error_code = None
     job.error_message = None
     db.flush()
+    publish(db, claim, result, normalized, output.validation)
+    if deadline <= db.scalar(select(func.clock_timestamp())):
+        raise ProcessingConflict("Job lease expired while publishing assessment")
     return result

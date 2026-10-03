@@ -18,6 +18,7 @@ ReasonCode = Literal[
     "amount_medium",
     "amount_high",
     "possible_duplicate_document",
+    "duplicate_context_unavailable",
 ]
 EvidencePath = Literal[
     "patient.full_name",

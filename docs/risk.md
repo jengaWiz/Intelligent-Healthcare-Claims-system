@@ -1,6 +1,6 @@
 # Explainable risk triage contract
 
-Status: policy, schemas and persistence implemented; worker integration and HTTP
+Status: policy, engine, persistence and worker integration implemented; duplicate context and HTTP
 routes are delivered by later tickets. See the [implementation plan](risk-triage-plan.md).
 
 Risk is priority for human investigation, not fraud probability, coverage,
@@ -25,6 +25,7 @@ uncertainties only; missing/invalid data and substantive signals still apply.
 | USD amount > 10,000 and <= 100,000 | MEDIUM / amount_medium |
 | USD amount > 100,000 | HIGH / amount_high |
 | Eligible exact-document peer | HIGH / possible_duplicate_document |
+| Duplicate context not available | INSUFFICIENT_DATA / duplicate_context_unavailable |
 | Complete evidence with no triggered rule | LOW under this limited policy |
 
 These thresholds are illustrative portfolio rules, not calibrated against real
@@ -32,6 +33,10 @@ claim outcomes. Use Decimal; exactly 10,000 triggers no amount rule and exactly
 100,000 triggers MEDIUM. Missing-data reasons take precedence over a level,
 but preserve other known signals. Reasons have deterministic code ordering and
 bounded, static messages and evidence paths; never include patient values.
+The checked-in risk-v1 confidence threshold is 0.8. This risk evidence gate is
+versioned independently of the processing gate; changing it requires a new policy
+version. Worker integration currently marks duplicate context unavailable pending
+RT06, so no incomplete duplicate check silently produces LOW.
 
 An exact duplicate is another active, non-rejected claim with matching document
 SHA-256 and the same persisted owner_id. It is a possible repeated document, not
