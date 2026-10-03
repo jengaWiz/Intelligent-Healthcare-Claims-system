@@ -6,6 +6,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     String,
     UniqueConstraint,
 )
@@ -19,6 +20,7 @@ from database.base import Base
 class Document(Base):
     __tablename__ = "documents"
     __table_args__ = (
+        Index("ix_document_sha_claim", "sha256", "claim_id"),
         UniqueConstraint("claim_id", "document_id", name="uq_document_claim_identity"),
         CheckConstraint(
             "document_state IN ('UPLOADED','QUEUED','PROCESSING','EXTRACTED','FAILED')",
