@@ -1,6 +1,6 @@
 name: claims-demo
 x-app: &app
-  image: ${CLAIMS_IMAGE:-claims-demo:m1}
+  image: ${CLAIMS_IMAGE:-claims-demo:risk-v1}
   build: .
   env_file: .env.docker
   environment:
