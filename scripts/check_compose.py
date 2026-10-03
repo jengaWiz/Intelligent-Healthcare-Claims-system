@@ -169,6 +169,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix="claims-backup-") as directory:
             target = Path(directory) / "paired"
             backup(project, target)
+            assert json.loads((target / "manifest.json").read_text())["schema"] == "968da3f6918e"
             # Keep source volumes untouched; stop its network services to free the port.
             subprocess.run([*command, "stop", "api", "worker"], check=True)
             restore_to_fresh_project(restored, target)
