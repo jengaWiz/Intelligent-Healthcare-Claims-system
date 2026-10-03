@@ -9,18 +9,8 @@ from schema.review import Snapshot
 from schema.validation_result import ValidationResult
 from services import risk_storage
 from services.claim_service import get_claim
-from services.risk_engine import RiskContext, assess, fingerprint, load_policy
-
-
-def context_for(db, claim, document_id):
-    # RT06 supplies the ownership-scoped peer snapshot. Never imply a completed
-    # duplicate scan before that integration is present.
-    return RiskContext(
-        duplicate_count=0,
-        complete=False,
-        fingerprint=fingerprint({"duplicate_context": "unavailable"}),
-        captured_at=db.scalar(select(func.clock_timestamp())),
-    )
+from services.risk_context import context_for
+from services.risk_engine import assess, load_policy
 
 
 def publish(db, claim, extraction, data, validation, *, human_verified=False):

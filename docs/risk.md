@@ -1,7 +1,8 @@
 # Explainable risk triage contract
 
-Status: policy, engine, persistence and worker integration implemented; duplicate context and HTTP
-routes are delivered by later tickets. See the [implementation plan](risk-triage-plan.md).
+Status: policy, engine, persistence, worker/review integration and scoped duplicate
+context implemented. HTTP routes and reviewer interface are delivered by later
+tickets. See the [implementation plan](risk-triage-plan.md).
 
 Risk is priority for human investigation, not fraud probability, coverage,
 medical necessity or payment approval. It is independent of document status:
@@ -35,8 +36,8 @@ but preserve other known signals. Reasons have deterministic code ordering and
 bounded, static messages and evidence paths; never include patient values.
 The checked-in risk-v1 confidence threshold is 0.8. This risk evidence gate is
 versioned independently of the processing gate; changing it requires a new policy
-version. Worker integration currently marks duplicate context unavailable pending
-RT06, so no incomplete duplicate check silently produces LOW.
+version. An explicitly unavailable duplicate context produces INSUFFICIENT_DATA;
+a database failure rolls back assessment instead of pretending no peers exist.
 
 An exact duplicate is another active, non-rejected claim with matching document
 SHA-256 and the same persisted owner_id. It is a possible repeated document, not
@@ -124,3 +125,16 @@ exists. Repeated unchanged refresh reuses the current assessment. Refresh leaves
 the document version unchanged, rejects missing/failed/in-flight sources and stale
 versions, and uses the stored extraction confidence as authoritative metadata.
 Protected HTTP exposure is still tracked in RT07.
+
+## Exact-document context
+
+Both worker completion and refresh now collect same-owner eligible peers, ordered
+by claim ID. The SHA-256/claim index supports matching and IDs are streamed in
+batches of 100 to bound application memory. Peer identifiers remain internal to
+the context fingerprint; public evidence is a static possible-duplicate message.
+The query does not lock other claims, avoiding cross-claim completion deadlocks.
+
+The fingerprint records the eligible peer set, not just its count. Later arrival,
+deactivation or rejection changes the context on explicit refresh; it does not
+rewrite earlier assessments. If a context returns to an earlier value, the new
+revision still receives a new identity and does not revive an old acknowledgment.
