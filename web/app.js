@@ -8,6 +8,9 @@ let csrf = null,
   busy = false;
 let listMode = "recent",
   listOffset = 0;
+let riskAssessmentId = null,
+  riskClaimId = null,
+  riskHistoryOffset = 0;
 const terminal = new Set(["READY", "REVIEW_REQUIRED", "FAILED", "REJECTED"]);
 function message(text, error = false) {
   $("message").textContent = text;
@@ -28,9 +31,11 @@ async function api(path, options = {}) {
   const data = await response.json();
   if (!response.ok) {
     if (response.status === 401) signedOut();
-    throw new Error(
+    const error = new Error(
       `${data.message || "Request failed"} (${data.code || response.status})`,
     );
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -43,6 +48,8 @@ function signedOut() {
   csrf = null;
   claimId = null;
   documentId = null;
+  riskAssessmentId = null;
+  riskClaimId = null;
   $("login-panel").hidden = false;
   $("workspace").hidden = true;
   $("logout").hidden = true;
@@ -73,6 +80,10 @@ async function action(button, operation) {
   busy = true;
   button.disabled = true;
   $("logout").disabled = true;
+  const mutations = document.querySelectorAll(
+    "#risk-refresh, #risk-ack-form button, #review-form button, #upload-form button, #retry",
+  );
+  for (const control of mutations) control.disabled = true;
   message("");
   try {
     await operation();
@@ -83,6 +94,7 @@ async function action(button, operation) {
     busy = false;
     button.disabled = false;
     $("logout").disabled = false;
+    for (const control of mutations) control.disabled = false;
   }
 }
 $("login-form").addEventListener("submit", (event) => {
@@ -191,6 +203,7 @@ async function refresh() {
   version = result.claim.version;
   documentId = result.job ? result.job.document_id : null;
   const state = result.claim.state;
+  renderRisk(result);
   $("state").textContent = state.replaceAll("_", " ");
   $("state").dataset.state = state;
   $("claim-reference").textContent = `Claim ${claimId} · version ${version}`;
@@ -292,6 +305,129 @@ async function refresh() {
       2000,
     );
 }
+function renderRisk(result) {
+  const risk = result.risk;
+  const newId = risk?.assessment_id || null;
+  if (riskClaimId !== result.claim.claim_id || riskAssessmentId !== newId) {
+    $("risk-reason").value = "";
+    $("risk-history").replaceChildren();
+    $("risk-history-navigation").hidden = true;
+    riskHistoryOffset = 0;
+  }
+  riskClaimId = result.claim.claim_id;
+  riskAssessmentId = newId;
+  $("risk-level").textContent = risk
+    ? risk.level.replaceAll("_", " ")
+    : "Not assessed";
+  $("risk-level").dataset.level = risk?.level || "";
+  $("risk-meta").textContent = risk
+    ? `${risk.policy_version} · data version ${risk.claim_version} · assessed ${new Date(risk.assessed_at).toLocaleString()} · context captured ${new Date(risk.context_at).toLocaleString()}`
+    : "No assessment exists for the current data. This does not mean low risk.";
+  $("risk-signals").replaceChildren();
+  for (const signal of risk?.signals || []) {
+    const row = node("div", "", "issue");
+    row.append(
+      node("strong", signal.code.replaceAll("_", " ")),
+      node("p", signal.message),
+      node("p", `Evidence: ${signal.evidence_fields.join(", ")}`, "muted"),
+    );
+    $("risk-signals").append(row);
+  }
+  if (risk && !risk.signals.length)
+    $("risk-signals").append(
+      node("p", "No rule triggered under this limited policy."),
+    );
+  const acknowledgment = result.risk_acknowledgment;
+  $("risk-acknowledgment").textContent = acknowledgment
+    ? `Acknowledged by ${acknowledgment.actor_id}: ${acknowledgment.reason}. Computed risk is unchanged.`
+    : risk
+      ? "This assessment has no risk acknowledgment."
+      : "No assessment is available to acknowledge.";
+  const editable = ["READY", "REVIEW_REQUIRED"].includes(result.claim.state);
+  $("risk-refresh").hidden = !editable || !result.current;
+  $("risk-ack-form").hidden = !editable || !risk || !!acknowledgment;
+}
+
+async function mutateRisk(suffix, payload, success) {
+  const selected = claimId;
+  if (riskClaimId !== selected)
+    throw new Error("Wait for this document to finish loading.");
+  try {
+    await api(`/claims/${selected}/risk/${suffix}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (selected !== claimId) return;
+    await refresh();
+    if (selected === claimId) message(success);
+  } catch (error) {
+    if (selected !== claimId) return;
+    if (error.status === 409 && selected === claimId) await refresh();
+    throw error;
+  }
+}
+$("risk-refresh").onclick = () =>
+  action($("risk-refresh"), () =>
+    mutateRisk(
+      "refresh",
+      { expected_version: version },
+      "Risk refreshed. Previous assessments are retained.",
+    ),
+  );
+$("risk-ack-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  action(event.submitter, () =>
+    mutateRisk(
+      "acknowledgments",
+      {
+        expected_version: version,
+        assessment_id: riskAssessmentId,
+        reason: $("risk-reason").value,
+      },
+      "Risk acknowledgment recorded. Document status and computed risk are unchanged.",
+    ),
+  );
+});
+async function loadRiskHistory() {
+  const selected = claimId;
+  const offset = riskHistoryOffset;
+  const assessment = riskAssessmentId;
+  const page = await api(`/claims/${selected}/risk?limit=20&offset=${offset}`);
+  if (
+    selected !== claimId ||
+    offset !== riskHistoryOffset ||
+    assessment !== riskAssessmentId
+  )
+    return;
+  $("risk-history").replaceChildren();
+  for (const item of page.items) {
+    const row = node("details", "", "audit");
+    row.append(
+      node(
+        "summary",
+        `${item.level.replaceAll("_", " ")} · data version ${item.claim_version} · ${new Date(item.assessed_at).toLocaleString()}`,
+      ),
+      node("p", `Policy: ${item.policy_version}`),
+    );
+    for (const signal of item.signals) row.append(node("p", signal.message));
+    $("risk-history").append(row);
+  }
+  if (!page.items.length)
+    $("risk-history").append(node("p", "No assessments on this page."));
+  $("risk-history-navigation").hidden = false;
+  $("risk-history-prev").disabled = riskHistoryOffset === 0;
+  $("risk-history-next").disabled = page.items.length < 20;
+}
+$("risk-history-load").onclick = () =>
+  action($("risk-history-load"), loadRiskHistory);
+$("risk-history-prev").onclick = () => {
+  riskHistoryOffset = Math.max(0, riskHistoryOffset - 20);
+  loadRiskHistory().catch((error) => message(error.message, true));
+};
+$("risk-history-next").onclick = () => {
+  riskHistoryOffset += 20;
+  loadRiskHistory().catch((error) => message(error.message, true));
+};
 $("decision").onchange = () => {
   const correction = $("decision").value === "correct";
   $("corrections").hidden = !correction;
