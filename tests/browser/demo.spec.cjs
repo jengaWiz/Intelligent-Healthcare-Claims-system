@@ -81,6 +81,42 @@ test('authenticated upload, correction, audit, rejection and safe failure retry'
   expect(errors).toEqual([]);
 });
 
+test('versioned risk corpus, exact duplicates and snapshot refresh', async ({page}) => {
+  await page.goto('/demo');
+  await page.getByLabel('Demo password').fill(process.env.BROWSER_PASSWORD || 'browser-synthetic-only');
+  await page.getByRole('button', {name: 'Open workspace'}).click();
+  await upload(page, 'valid');
+  await expect(page.locator('#state')).toHaveText('READY', {timeout: 20000});
+  await expect(page.locator('#risk-level')).toHaveText('LOW');
+  const firstId = (await page.locator('#claim-reference').textContent()).match(/[0-9a-f-]{36}/)[0];
+  await upload(page, 'valid');
+  await expect(page.locator('#state')).toHaveText('READY', {timeout: 20000});
+  await expect(page.locator('#risk-level')).toHaveText('HIGH');
+  await expect(page.locator('#risk-signals')).toContainText('identical bytes');
+  const original = await (await page.request.get(`/claims/${firstId}/results`)).json();
+  expect(original.risk.level).toBe('LOW');
+  const session = await (await page.request.get('/auth/session')).json();
+  const refreshed = await page.request.post(`/claims/${firstId}/risk/refresh`, {
+    headers: {Origin: process.env.BROWSER_BASE_URL || 'http://127.0.0.1:8047', 'X-CSRF-Token': session.csrf_token},
+    data: {expected_version: original.claim.version},
+  });
+  expect(refreshed.status()).toBe(200);
+  expect((await refreshed.json()).level).toBe('HIGH');
+  await upload(page, 'medium');
+  await expect(page.locator('#state')).toHaveText('READY', {timeout: 20000});
+  await expect(page.locator('#risk-level')).toHaveText('MEDIUM');
+  await upload(page, 'high');
+  await expect(page.locator('#state')).toHaveText('REVIEW REQUIRED', {timeout: 20000});
+  await expect(page.locator('#risk-level')).toHaveText('HIGH');
+  await page.screenshot({path: path.resolve(__dirname, '../../docs/screenshots/risk.png'), fullPage: true});
+  await upload(page, 'review');
+  await expect(page.locator('#state')).toHaveText('REVIEW REQUIRED', {timeout: 20000});
+  await expect(page.locator('#risk-level')).toHaveText('INSUFFICIENT DATA');
+  await page.getByRole('button', {name: 'Risk queue', exact: false}).click();
+  await expect(page.locator('.claim-row')).toHaveCount(5);
+  expect(await page.locator('.claim-row .badge').allTextContents()).toEqual(['HIGH','HIGH','HIGH','MEDIUM','INSUFFICIENT DATA']);
+});
+
 test('risk explanations, HIGH acknowledgment, history and stale conflict recovery', async ({page}) => {
   await page.goto('/demo');
   await page.getByLabel('Demo password').fill(process.env.BROWSER_PASSWORD || 'browser-synthetic-only');
