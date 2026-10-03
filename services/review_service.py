@@ -1,5 +1,7 @@
 """Immutable extraction evidence, append-only revisions, and serialized decisions."""
 
+from datetime import date
+
 from sqlalchemy import select
 
 from agents.validation_agent import ValidationAgent
@@ -107,7 +109,14 @@ def decide(db, claim_id, payload, actor):
         else ClaimData.model_validate(before["data"])
     )
     # Human review replaces semantic/low-confidence gating, but cannot bypass critical rules.
-    validator = ValidationAgent()
+    reference_date = (
+        result.provenance.get("validation_reference_date")
+        if result.extraction_engine == "SyntheticFixture"
+        else None
+    )
+    validator = ValidationAgent(
+        today=date.fromisoformat(reference_date) if reference_date else None
+    )
     issues = [
         *validator._check_missing_fields(data),
         *validator._check_date_logic(data),

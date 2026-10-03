@@ -1,0 +1,78 @@
+{
+  "synthetic_only": true,
+  "live_provider_calls": 0,
+  "method": "synthetic_rule_conformance",
+  "policy_version": "risk-v1",
+  "corpus_version": "risk-corpus-1",
+  "reference_date": "2026-10-03",
+  "context_mode": "declared fixture sequence; real database context verified separately",
+  "cases": [
+    {
+      "scenario": "valid",
+      "expected_level": "LOW",
+      "actual_level": "LOW",
+      "matched": true,
+      "document_state": "READY",
+      "reason_codes": [],
+      "requires_prior": null
+    },
+    {
+      "scenario": "review",
+      "expected_level": "INSUFFICIENT_DATA",
+      "actual_level": "INSUFFICIENT_DATA",
+      "matched": true,
+      "document_state": "REVIEW_REQUIRED",
+      "reason_codes": [
+        "invalid_data",
+        "missing_amount",
+        "unverified_extraction"
+      ],
+      "requires_prior": null
+    },
+    {
+      "scenario": "failure",
+      "expected_level": null,
+      "actual_level": null,
+      "matched": true,
+      "document_state": "FAILED"
+    },
+    {
+      "scenario": "medium",
+      "expected_level": "MEDIUM",
+      "actual_level": "MEDIUM",
+      "matched": true,
+      "document_state": "READY",
+      "reason_codes": [
+        "amount_medium"
+      ],
+      "requires_prior": null
+    },
+    {
+      "scenario": "high",
+      "expected_level": "HIGH",
+      "actual_level": "HIGH",
+      "matched": true,
+      "document_state": "REVIEW_REQUIRED",
+      "reason_codes": [
+        "amount_high"
+      ],
+      "requires_prior": null
+    },
+    {
+      "scenario": "duplicate",
+      "expected_level": "HIGH",
+      "actual_level": "HIGH",
+      "matched": true,
+      "document_state": "READY",
+      "reason_codes": [
+        "possible_duplicate_document"
+      ],
+      "requires_prior": "valid"
+    }
+  ],
+  "all_matched": true,
+  "limitations": [
+    "Illustrative rules, not fraud probabilities or predictive accuracy",
+    "Synthetic cases do not establish real-world detection performance"
+  ]
+}

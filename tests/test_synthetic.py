@@ -10,7 +10,7 @@ from services.synthetic_processor import process_sample
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.parametrize("scenario", ["valid", "review"])
+@pytest.mark.parametrize("scenario", ["valid", "review", "medium", "high"])
 def test_fixture_fields_and_outcomes(scenario):
     manifest = json.loads((ROOT / "samples/manifest.json").read_text())
     expected = manifest["scenarios"][scenario]

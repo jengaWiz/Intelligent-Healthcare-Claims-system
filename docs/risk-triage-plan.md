@@ -1,7 +1,7 @@
 # Explainable claim risk triage — implementation plan
 
-Status: implementation in progress. M2/M3 contracts, rule engine, persistence, worker/review integration and scoped
-duplicates are integrated. API/interface/verification delivery is tracked below.
+Status: implementation in progress. M2–M4 contracts, assessment/integration and reviewer API/interface are integrated.
+Synthetic scenario, container verification and release delivery is tracked below.
 This extends the local synthetic demo independently of outstanding M1 live-provider
 evaluation. No hosting, provider spending, new agents, or predictive model is required.
 
@@ -233,9 +233,9 @@ reviewer can reproduce all risk scenarios without cloud accounts or fees.
 
 ### [M4 — Risk API and reviewer experience](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/4)
 
-- [ ] [#41 — RT07: Expose protected risk endpoints and acknowledgments](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/41)
-- [ ] [#42 — RT08: Display assessment reasons and review actions](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/42)
-- [ ] [#43 — RT09: Add risk queue filtering and prioritization](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/43)
+- [x] [#41 — RT07: Expose protected risk endpoints and acknowledgments](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/41)
+- [x] [#42 — RT08: Display assessment reasons and review actions](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/42)
+- [x] [#43 — RT09: Add risk queue filtering and prioritization](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/43)
 
 ### [M5 — Risk verification and local release](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/5)
 

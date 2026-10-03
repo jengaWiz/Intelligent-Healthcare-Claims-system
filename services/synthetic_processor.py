@@ -1,6 +1,7 @@
 """Explicit fixture mode accepts only byte-identical versioned synthetic samples."""
 
 import json
+from datetime import date
 from hashlib import sha256
 from pathlib import Path
 
@@ -29,7 +30,11 @@ def process_sample(path, *, settings):
     raw = sample["extracted"]
     claim, validation, outcome = normalize_and_validate(
         raw,
-        validator=ValidationAgent(settings=settings, client=FixtureSemanticClient()),
+        validator=ValidationAgent(
+            settings=settings,
+            client=FixtureSemanticClient(),
+            today=date.fromisoformat(manifest["reference_date"]),
+        ),
         settings=settings,
     )
     return ProcessingResult(
@@ -42,6 +47,7 @@ def process_sample(path, *, settings):
         provenance={
             "mode": "synthetic-fixture",
             "corpus_version": manifest["version"],
+            "validation_reference_date": manifest["reference_date"],
             "confidence_threshold": settings.extraction_confidence_threshold,
             "azure_model": "not-called",
             "llm_model": "not-called",
