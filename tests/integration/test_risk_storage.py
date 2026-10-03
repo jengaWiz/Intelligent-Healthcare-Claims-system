@@ -266,3 +266,22 @@ def test_concurrent_identical_assessments_publish_once(engine):
     finally:
         with Session(engine) as db, db.begin():
             db.execute(delete(Claim).where(Claim.claim_id == claim_id))
+
+
+def test_lock_reloads_previously_loaded_claim_version(engine):
+    with Session(engine) as db:
+        claim, result = source(db)
+        claim_id, extraction_id = claim.claim_id, result.extraction_id
+        db.commit()
+    try:
+        with Session(engine) as stale:
+            loaded = stale.get(Claim, claim_id)
+            with Session(engine) as writer, writer.begin():
+                writer.execute(update(Claim).where(Claim.claim_id == claim_id).values(version=2))
+            assert loaded.version == 1
+            with pytest.raises(APIError) as error:
+                risk_storage.store(stale, claim_id, extraction_id, evaluation(), expected_version=1)
+            assert error.value.code == "stale_risk"
+    finally:
+        with Session(engine) as db, db.begin():
+            db.execute(delete(Claim).where(Claim.claim_id == claim_id))

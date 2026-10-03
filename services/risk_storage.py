@@ -7,7 +7,7 @@ from sqlalchemy import select
 from api.dependencies import APIError
 from models import Document, ExtractionResult, RiskAcknowledgment, RiskAssessment
 from schema.risk import RiskAcknowledgmentResponse, RiskAssessmentResponse, RiskEvaluation
-from services.review_service import get_claim
+from services.claim_service import get_claim
 
 
 def latest(db, claim_id):

@@ -4,22 +4,11 @@ from sqlalchemy import select
 
 from agents.validation_agent import ValidationAgent
 from api.dependencies import APIError
-from models import Claim, Document, ExtractionResult, ProcessingJob, Review
+from models import Document, ExtractionResult, ProcessingJob, Review
 from schema.api import ClaimResponse, JobResponse
 from schema.claim_data import ClaimData
 from schema.validation_result import ValidationResult
-from services.access_service import scoped
-
-
-def get_claim(db, claim_id, *, lock=False):
-    query = select(Claim).where(Claim.claim_id == claim_id)
-    query = scoped(query, db)
-    if lock:
-        query = query.with_for_update()
-    claim = db.scalar(query)
-    if claim is None:
-        raise APIError(404, "claim_not_found", "Claim not found")
-    return claim
+from services.claim_service import get_claim
 
 
 def extraction(db, claim_id):
