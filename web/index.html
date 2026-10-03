@@ -16,6 +16,7 @@
       <nav aria-label="Workspace">
         <button id="nav-upload" class="nav active">＋ New document</button
         ><button id="nav-queue" class="nav">☷ Review queue</button
+        ><button id="nav-risk" class="nav">⚑ Risk queue</button
         ><button id="nav-recent" class="nav">◷ My documents</button>
       </nav>
       <div class="sidebar-note">
@@ -84,6 +85,26 @@
         <section id="list-panel" class="card" hidden>
           <span class="pill">WORKSPACE</span>
           <h2 id="list-title">Your documents</h2>
+          <div id="risk-filters" class="form-grid" hidden>
+            <div>
+              <label for="risk-filter-level">Risk level filter</label>
+              <select id="risk-filter-level">
+                <option value="">All levels</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="INSUFFICIENT_DATA">Insufficient data</option>
+                <option value="LOW">Low</option>
+              </select>
+            </div>
+            <div>
+              <label for="risk-filter-ack">Risk acknowledgment filter</label>
+              <select id="risk-filter-ack">
+                <option value="unacknowledged">Needs acknowledgment</option>
+                <option value="all">All assessments</option>
+                <option value="acknowledged">Acknowledged</option>
+              </select>
+            </div>
+          </div>
           <div id="claim-list"></div>
           <div class="actions">
             <button id="list-prev" class="quiet">Previous</button
