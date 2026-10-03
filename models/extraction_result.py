@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     ForeignKeyConstraint,
     String,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -20,6 +21,7 @@ from database.base import Base
 class ExtractionResult(Base):
     __tablename__ = "extraction_results"
     __table_args__ = (
+        UniqueConstraint("extraction_id", "document_id", name="uq_extraction_document_identity"),
         ForeignKeyConstraint(
             ["job_id", "document_id"],
             ["processing_jobs.job_id", "processing_jobs.document_id"],
