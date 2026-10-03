@@ -35,6 +35,7 @@ class RiskContext(RiskContract):
     duplicate_count: int = Field(ge=0, strict=True)
     fingerprint: Fingerprint
     captured_at: AwareDatetime
+    complete: bool = Field(default=True, strict=True)
 
 
 @lru_cache(maxsize=1)
@@ -122,6 +123,12 @@ def assess(
             "possible_duplicate_document",
             ["document.sha256"],
             "An eligible same-workspace document has identical bytes.",
+        )
+    if not context.complete:
+        signal(
+            "duplicate_context_unavailable",
+            ["document.sha256"],
+            "Duplicate context is unavailable; review priority is incomplete.",
         )
 
     signals.sort(key=lambda item: item.code)

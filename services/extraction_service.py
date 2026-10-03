@@ -11,6 +11,7 @@ from models.extraction_result import ExtractionResult
 from models.job import ProcessingJob
 from models.validation import ValidationOutcome
 from services.processing import ProcessingResult
+from services.risk_assessment_service import publish
 
 
 class ProcessingConflict(ValueError):
@@ -103,4 +104,5 @@ def persist_processing_result(
     job.error_code = None
     job.error_message = None
     db.flush()
+    publish(db, claim, result, normalized, output.validation)
     return result
