@@ -37,7 +37,7 @@ audited reviewer workspace.
 > A public deployment would additionally require a hosting target, HTTPS ingress,
 > and environment-specific configuration; those have not been provisioned or verified.
 
-![Claim Studio results from an actual browser smoke check](docs/screenshots/results.png)
+![Claim Studio: extracted data, quality checks, and risk investigation](docs/screenshots/results.png)
 
 ## What it does
 
@@ -51,7 +51,12 @@ INSUFFICIENT_DATA** assessment. Reviewers see the triggered rules, refresh dupli
 context, investigate a prioritized risk queue, and acknowledge a specific assessment
 with a reason. Corrections create new assessments while preserving prior evidence.
 
+<details>
+<summary>See the high-risk investigation workflow</summary>
+
 ![HIGH risk with explainable reasons and independent acknowledgment](docs/screenshots/risk.png)
+
+</details>
 
 Risk is **human review priority** under an illustrative rules policy. It is not a
 fraud probability; LOW does not establish absence of fraud. Data approval and risk
@@ -174,7 +179,7 @@ worker-process crash/restart, Chromium upload/review flows, and full Docker
 persistence plus paired database/upload restore. CI runs setup, lint/docs/unit,
 PostgreSQL/migrations, browser, and container checks. Evidence and release details
 are in [verification](docs/verification/) and [risk release notes](docs/releases/risk-v1.md).
-The risk release passed **303 Python tests**, **three Chromium workflows**, and
+The current project verification includes **303 Python tests**, **four Chromium workflows**, and
 **11 Docker migration/restart/restore checks**. Six declared synthetic scenarios
 match the policy; this measures rule conformance, not predictive fraud accuracy.
 
