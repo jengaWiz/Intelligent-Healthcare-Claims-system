@@ -1,5 +1,16 @@
 # Browser demo
 
+Results include **Risk review priority** independently of document status. Read
+the level, static reasons and policy/data/context timestamps. Not assessed does
+not mean LOW; INSUFFICIENT_DATA means evaluation needs more evidence. HIGH is a
+rule-based investigation priority, not a fraud probability.
+
+Use **Refresh risk assessment** to capture changed peer context, or enter a reason
+and **Record risk acknowledgment** to document investigation. This does not clear
+computed risk or approve document data. A new assessment requires its own
+acknowledgment. **Show assessment history** loads 20 records per page. Stale
+mutation conflicts refresh the current result before displaying the error.
+
 Open `/demo` at the exact PUBLIC_ORIGIN and sign in with the server-configured
 DEMO_PASSWORD. The browser receives an opaque session and CSRF token, never
 operator/provider credentials. Keep that session to revisit **My documents**.

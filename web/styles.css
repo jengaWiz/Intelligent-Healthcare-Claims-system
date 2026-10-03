@@ -368,6 +368,32 @@ footer {
   color: #8a97ad;
   padding: 16px 0 30px;
 }
+.badge[data-level="LOW"] {
+  background: #e4f4ed;
+  color: #205c43;
+}
+.badge[data-level="MEDIUM"] {
+  background: #fff1d7;
+  color: #765116;
+}
+.badge[data-level="HIGH"] {
+  background: #fce4e4;
+  color: #923636;
+}
+.badge[data-level="INSUFFICIENT_DATA"] {
+  background: #e9edf7;
+  color: #394c77;
+}
+#risk-panel {
+  margin-top: 20px;
+}
+#risk-ack-form {
+  margin-top: 16px;
+}
+#risk-history-load {
+  margin-top: 16px;
+}
+
 @media (max-width: 950px) {
   main {
     padding: 25px;

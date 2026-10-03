@@ -120,6 +120,47 @@
               </p>
             </section>
           </div>
+          <section id="risk-panel" class="card" aria-labelledby="risk-title">
+            <div class="card-heading">
+              <h3 id="risk-title">Risk review priority</h3>
+              <span
+                id="risk-level"
+                class="badge"
+                role="status"
+                aria-live="polite"
+                >Not assessed</span
+              >
+            </div>
+            <p class="muted">
+              Illustrative rules prioritize human investigation. This is not a
+              fraud probability, coverage or payment decision.
+            </p>
+            <p id="risk-meta" class="muted"></p>
+            <div id="risk-signals"></div>
+            <p id="risk-acknowledgment"></p>
+            <button id="risk-refresh" class="quiet" type="button" hidden>
+              Refresh risk assessment
+            </button>
+            <form id="risk-ack-form" hidden>
+              <label for="risk-reason">Reason for risk acknowledgment</label>
+              <input id="risk-reason" maxlength="2000" required />
+              <button class="primary" type="submit">
+                Record risk acknowledgment
+              </button>
+            </form>
+            <button id="risk-history-load" class="quiet" type="button">
+              Show assessment history
+            </button>
+            <div id="risk-history"></div>
+            <div id="risk-history-navigation" class="actions" hidden>
+              <button id="risk-history-prev" class="quiet" type="button">
+                Previous assessments
+              </button>
+              <button id="risk-history-next" class="quiet" type="button">
+                Next assessments
+              </button>
+            </div>
+          </section>
           <section id="review-panel" class="card" hidden>
             <span class="pill">02 / HUMAN REVIEW</span>
             <h3>Resolve this document</h3>

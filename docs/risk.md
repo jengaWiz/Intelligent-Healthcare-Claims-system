@@ -2,7 +2,8 @@
 
 Status: policy, engine, persistence, worker/review integration and scoped duplicate
 context and protected risk history/refresh/acknowledgment routes implemented.
-The reviewer interface and risk queue are delivered by later tickets.
+The results interface displays level, explanations, policy/data/context timestamps,
+refresh, acknowledgment and paginated history. The risk queue is delivered by RT09.
 See the [implementation plan](risk-triage-plan.md).
 
 Risk is priority for human investigation, not fraud probability, coverage,
