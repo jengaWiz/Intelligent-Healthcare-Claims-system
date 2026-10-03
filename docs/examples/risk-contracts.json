@@ -1,0 +1,73 @@
+{
+  "illustrative_only": true,
+  "evaluations": [
+    {
+      "policy_version": "risk-v1",
+      "input_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "context_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "assessed_at": "2026-10-03T12:00:00Z",
+      "context_at": "2026-10-03T12:00:00Z",
+      "level": "LOW",
+      "signals": []
+    },
+    {
+      "policy_version": "risk-v1",
+      "input_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "context_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "assessed_at": "2026-10-03T12:00:00Z",
+      "context_at": "2026-10-03T12:00:00Z",
+      "level": "MEDIUM",
+      "signals": [
+        {
+          "code": "amount_medium",
+          "evidence_fields": [
+            "billing.total_amount"
+          ],
+          "message": "Amount exceeds the illustrative medium review threshold."
+        }
+      ]
+    },
+    {
+      "policy_version": "risk-v1",
+      "input_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "context_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "assessed_at": "2026-10-03T12:00:00Z",
+      "context_at": "2026-10-03T12:00:00Z",
+      "level": "HIGH",
+      "signals": [
+        {
+          "code": "possible_duplicate_document",
+          "evidence_fields": [
+            "document.sha256"
+          ],
+          "message": "An eligible same-workspace document has identical bytes."
+        }
+      ]
+    },
+    {
+      "policy_version": "risk-v1",
+      "input_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "context_fingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "assessed_at": "2026-10-03T12:00:00Z",
+      "context_at": "2026-10-03T12:00:00Z",
+      "level": "INSUFFICIENT_DATA",
+      "signals": [
+        {
+          "code": "missing_amount",
+          "evidence_fields": [
+            "billing.total_amount"
+          ],
+          "message": "A billed amount is required to assess review priority."
+        }
+      ]
+    }
+  ],
+  "refresh": {
+    "expected_version": 1
+  },
+  "acknowledgment": {
+    "expected_version": 1,
+    "assessment_id": "00000000-0000-0000-0000-000000000001",
+    "reason": "Investigated the flagged synthetic document."
+  }
+}
