@@ -1,5 +1,6 @@
 """Risk review is independent of document approval, protected by existing access."""
 
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -11,12 +12,30 @@ from schema.risk import (
     RiskAcknowledgmentResponse,
     RiskAssessmentResponse,
     RiskHistoryResponse,
+    RiskLevel,
+    RiskQueueResponse,
     RiskRefreshCreate,
 )
 from services import risk_storage
 from services.risk_assessment_service import refresh
+from services.risk_queue import queue
 
 router = APIRouter(dependencies=[Depends(require_token)])
+
+
+@router.get("/risk/queue", response_model=RiskQueueResponse)
+def risk_queue(
+    db: Session = Depends(get_api_db),
+    level: RiskLevel | None = Query(None),
+    acknowledged: Literal["all", "acknowledged", "unacknowledged"] = Query("unacknowledged"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    return RiskQueueResponse(
+        items=queue(db, level=level, acknowledged=acknowledged, limit=limit, offset=offset),
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/claims/{claim_id}/risk", response_model=RiskHistoryResponse)

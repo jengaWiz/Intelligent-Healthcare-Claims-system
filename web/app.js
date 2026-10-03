@@ -8,6 +8,7 @@ let csrf = null,
   busy = false;
 let listMode = "recent",
   listOffset = 0;
+let listRequestId = 0;
 let riskAssessmentId = null,
   riskClaimId = null,
   riskHistoryOffset = 0;
@@ -44,6 +45,7 @@ function stopPolling() {
   timer = null;
 }
 function signedOut() {
+  listRequestId += 1;
   stopPolling();
   csrf = null;
   claimId = null;
@@ -63,7 +65,7 @@ function signedIn() {
 function show(panel) {
   for (const name of ["upload", "list", "results"])
     $(`${name}-panel`).hidden = name !== panel;
-  for (const name of ["upload", "queue", "recent"])
+  for (const name of ["upload", "queue", "recent", "risk"])
     $(`nav-${name}`).classList.toggle(
       "active",
       name === panel || (panel === "list" && name === listMode),
@@ -122,30 +124,75 @@ $("nav-upload").addEventListener("click", () => {
   message("");
   show("upload");
 });
-for (const name of ["queue", "recent"])
+for (const name of ["queue", "recent", "risk"])
   $(`nav-${name}`).addEventListener("click", () => {
     listMode = name;
     listOffset = 0;
     loadList().catch((e) => message(e.message, true));
   });
 async function loadList() {
+  const requestId = ++listRequestId;
+  const mode = listMode;
+  const offset = listOffset;
   claimId = null;
   documentId = null;
   stopPolling();
   show("list");
   $("list-title").textContent =
-    listMode === "queue" ? "Documents needing your review" : "Your documents";
-  const records = await api(
-    `${listMode === "queue" ? "/reviews" : "/claims"}?limit=20&offset=${listOffset}`,
+    mode === "risk"
+      ? "Risk investigation queue"
+      : mode === "queue"
+        ? "Documents needing your review"
+        : "Your documents";
+  $("risk-filters").hidden = mode !== "risk";
+  const params = new URLSearchParams({ limit: "20", offset: String(offset) });
+  if (mode === "risk") {
+    if ($("risk-filter-level").value)
+      params.set("level", $("risk-filter-level").value);
+    params.set("acknowledged", $("risk-filter-ack").value);
+  }
+  const response = await api(
+    `${mode === "risk" ? "/risk/queue" : mode === "queue" ? "/reviews" : "/claims"}?${params}`,
   );
+  if (requestId !== listRequestId || claimId !== null || !csrf) return;
+  const entries =
+    mode === "risk" ? response.items : response.map((claim) => ({ claim }));
   $("claim-list").replaceChildren();
-  for (const claim of records) {
+  for (const entry of entries) {
+    const claim = entry.claim;
     const row = node("div", "", "claim-row");
     const text = node(
       "div",
       `${claim.state.replaceAll("_", " ")} · ${new Date(claim.created_at).toLocaleString()}`,
     );
     text.append(node("p", claim.claim_id, "muted"));
+    if (entry.risk) {
+      const badge = node(
+        "span",
+        entry.risk.level.replaceAll("_", " "),
+        "badge",
+      );
+      badge.dataset.level = entry.risk.level;
+      text.append(
+        badge,
+        node(
+          "p",
+          entry.acknowledgment ? "Acknowledged" : "Needs acknowledgment",
+          "muted",
+        ),
+      );
+      if (entry.risk.signals.length)
+        text.append(
+          node(
+            "p",
+            entry.risk.signals
+              .map((signal) => signal.message)
+              .join(" ")
+              .slice(0, 200),
+            "muted",
+          ),
+        );
+    }
     const button = node("button", "Open →", "quiet");
     button.onclick = () => {
       claimId = claim.claim_id;
@@ -154,11 +201,16 @@ async function loadList() {
     row.append(text, button);
     $("claim-list").append(row);
   }
-  if (!records.length)
+  if (!entries.length)
     $("claim-list").append(node("p", "No documents here yet."));
   $("list-prev").disabled = listOffset === 0;
-  $("list-next").disabled = records.length < 20;
+  $("list-next").disabled = entries.length < 20;
 }
+for (const id of ["risk-filter-level", "risk-filter-ack"])
+  $(id).onchange = () => {
+    listOffset = 0;
+    loadList().catch((error) => message(error.message, true));
+  };
 $("list-prev").onclick = () => {
   listOffset = Math.max(0, listOffset - 20);
   loadList().catch((e) => message(e.message, true));

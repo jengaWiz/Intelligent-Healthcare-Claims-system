@@ -1,5 +1,11 @@
 # Browser demo
 
+**Risk queue** is separate from the document-quality Review queue. Its default
+view shows assessments needing acknowledgment; filter by level or select all /
+acknowledged assessments. HIGH appears before MEDIUM, INSUFFICIENT_DATA and LOW.
+Rejected, inactive and unassessed claims are excluded, but ordinary My documents
+remains available. Open a row to investigate its evidence and history.
+
 Results include **Risk review priority** independently of document status. Read
 the level, static reasons and policy/data/context timestamps. Not assessed does
 not mean LOW; INSUFFICIENT_DATA means evaluation needs more evidence. HIGH is a
