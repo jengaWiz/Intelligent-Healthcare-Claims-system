@@ -57,6 +57,11 @@ assessment from the versioned `risk-v1` rules engine. Each assessment records th
 triggered reasons, evidence field paths, policy version, data version, and timestamps
 so a reviewer can understand why a claim needs attention.
 
+![Risk investigation workspace: HIGH classification, evidence, acknowledgment, and separate data review](docs/screenshots/risk.png)
+
+*Actual synthetic demo: a high-amount claim shows its risk reason alongside
+extracted fields, quality checks, and separate reviewer actions.*
+
 | Classification | What triggers it under the demo policy |
 | --- | --- |
 | **LOW** | Complete, supported evidence with no triggered risk rule. |
@@ -78,17 +83,30 @@ not establish absence of fraud, and accepting document data does not clear risk.
 - **Independent acknowledgment:** reviewers record a reason against the current
   assessment. It does not change the level or carry over to a new assessment.
 
+```mermaid
+flowchart LR
+    DATA[Extracted claim data] --> ENGINE[risk-v1 assessment]
+    CHANGE[Correction or context refresh] --> ENGINE
+    ENGINE --> RESULT[Risk level + reasons]
+    RESULT --> QUEUE[Prioritized risk queue]
+    QUEUE --> ACK[Reasoned acknowledgment]
+    ENGINE -.-> HISTORY[Immutable assessment history]
+    ACK -.-> HISTORY
+    classDef input fill:#f0f6f3,stroke:#b1cfc1,color:#203c3a
+    classDef engine fill:#153e38,stroke:#153e38,color:#ffffff
+    classDef result fill:#fff1d9,stroke:#d0a152,color:#74562a
+    classDef action fill:#e6f5eb,stroke:#69a98c,color:#216f4e
+    class DATA,CHANGE input
+    class ENGINE engine
+    class RESULT result
+    class QUEUE,ACK,HISTORY action
+```
+
 **Try it in the demo:** upload the High risk sample, accept its extracted data,
 and confirm the document becomes READY while risk remains HIGH. Record a separate
 risk acknowledgment, then inspect the assessment history. Upload the Complete
 claim twice to explore the duplicate signal and refresh the first claim's snapshot.
 
-<details>
-<summary>See the high-risk investigation workflow</summary>
-
-![HIGH risk with explainable reasons and independent acknowledgment](docs/screenshots/risk.png)
-
-</details>
 
 [Policy and API details](docs/risk.md) · [Risk release](docs/releases/risk-v1.md) ·
 [Synthetic rule verification](docs/verification/risk.json)
