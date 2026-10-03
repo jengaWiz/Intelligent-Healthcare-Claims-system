@@ -1,5 +1,7 @@
 import os
+import time
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -89,9 +91,12 @@ def output(ready=True):
 
 
 @pytest.mark.parametrize("ready", [True, False])
-def test_processing_result_reconstructs_exactly_and_advances_states(session, ready):
+@pytest.mark.parametrize("mode", ["synthetic-fixture", "live"])
+def test_processing_result_reconstructs_exactly_and_advances_states(session, ready, mode):
     job, doc, claim = running_job(session)
-    result = persist_processing_result(session, job.job_id, job.lease_owner, output(ready))
+    processed = output(ready)
+    processed.provenance["mode"] = mode
+    result = persist_processing_result(session, job.job_id, job.lease_owner, processed)
     session.commit()
     session.expire_all()
     restored = session.get(ExtractionResult, result.extraction_id)
@@ -110,6 +115,43 @@ def test_processing_result_reconstructs_exactly_and_advances_states(session, rea
     assert assessment.claim_version == claim.version
     assert assessment.level == "INSUFFICIENT_DATA"
     assert "duplicate_context_unavailable" in {item["code"] for item in assessment.signals}
+
+
+def test_assessment_error_rolls_back_successful_extraction(session):
+    job, document, claim = running_job(session)
+    with pytest.raises(RuntimeError):
+        with session.begin_nested():
+            with patch(
+                "services.extraction_service.publish",
+                side_effect=RuntimeError("Synthetic assessment error"),
+            ):
+                persist_processing_result(session, job.job_id, job.lease_owner, output())
+    session.expire_all()
+    assert session.scalar(select(func.count()).select_from(ExtractionResult)) == 0
+    assert session.scalar(select(func.count()).select_from(RiskAssessment)) == 0
+    assert (job.state, document.document_state, claim.version) == ("RUNNING", "PROCESSING", 1)
+
+
+def test_lease_expiring_during_assessment_cannot_publish(session):
+    from services.risk_assessment_service import publish
+
+    job, document, claim = running_job(session)
+    job.lease_expires_at = datetime.now(timezone.utc) + timedelta(seconds=1.5)
+    session.flush()
+
+    def delayed(*args, **kwargs):
+        result = publish(*args, **kwargs)
+        time.sleep(2)
+        return result
+
+    with pytest.raises(ProcessingConflict, match="publishing assessment"):
+        with session.begin_nested():
+            with patch("services.extraction_service.publish", side_effect=delayed):
+                persist_processing_result(session, job.job_id, job.lease_owner, output())
+    session.expire_all()
+    assert session.scalar(select(func.count()).select_from(RiskAssessment)) == 0
+    assert session.scalar(select(func.count()).select_from(ExtractionResult)) == 0
+    assert (job.state, document.document_state, claim.version) == ("RUNNING", "PROCESSING", 1)
 
 
 @pytest.mark.parametrize("expired", [True, False])
