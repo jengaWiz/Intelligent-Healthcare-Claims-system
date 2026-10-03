@@ -1,7 +1,7 @@
 # Explainable claim risk triage — implementation plan
 
-Status: implementation in progress. M2 contracts, rule engine and persistence are integrated;
-worker, review and interface delivery is tracked below.
+Status: implementation in progress. M2/M3 contracts, rule engine, persistence, worker/review integration and scoped
+duplicates are integrated. API/interface/verification delivery is tracked below.
 This extends the local synthetic demo independently of outstanding M1 live-provider
 evaluation. No hosting, provider spending, new agents, or predictive model is required.
 
@@ -227,9 +227,9 @@ reviewer can reproduce all risk scenarios without cloud accounts or fees.
 
 ### [M3 — Processing, correction and duplicate integration](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/3)
 
-- [ ] [#38 — RT04: Integrate assessment with successful worker completion](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/38)
-- [ ] [#39 — RT05: Reassess corrected data and preserve review history](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/39)
-- [ ] [#40 — RT06: Add workspace-scoped exact duplicate context](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/40)
+- [x] [#38 — RT04: Integrate assessment with successful worker completion](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/38)
+- [x] [#39 — RT05: Reassess corrected data and preserve review history](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/39)
+- [x] [#40 — RT06: Add workspace-scoped exact duplicate context](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/issues/40)
 
 ### [M4 — Risk API and reviewer experience](https://github.com/jengaWiz/Intelligent-Healthcare-Claims-system/milestone/4)
 

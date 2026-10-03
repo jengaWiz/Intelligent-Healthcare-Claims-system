@@ -46,8 +46,6 @@ claim/document/job/result/review lookup checks ownership and returns 404 for oth
 workspaces. Browser mutations require exact PUBLIC_ORIGIN and X-CSRF-Token.
 See [access handling](access.md) and [the local Docker setup](deployment.md).
 
-## Verification
-
 ## Explainable risk review
 
 Results include nullable `risk` and `risk_acknowledgment`. Null means not assessed;
