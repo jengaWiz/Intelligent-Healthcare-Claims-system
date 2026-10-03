@@ -45,6 +45,22 @@ The local smoke rehearses a retained-image redeploy of this same release; it is
 not evidence that older pre-session binaries are compatible with the new schema.
 Migration downgrade limitations are in [jobs.md](jobs.md) and [access.md](access.md).
 
+### Risk-triage upgrade
+
+The risk release upgrades M1 revision `b61ceaf00211` through risk history
+revision `a1fb3ff0cf40` to head `968da3f6918e`. Existing claims, extractions,
+reviews, and uploaded bytes are preserved. Legacy results show no assessment
+until an eligible claim is explicitly refreshed; they are never silently labeled LOW.
+New processing and reviewer corrections publish risk within the same transaction.
+
+Record the running image ID before rebuilding its tag. Set `CLAIMS_IMAGE` to
+that retained ID while making the pre-upgrade backup: the backup helper resumes
+services afterward, so it must resume the intended application version.
+Then deploy the candidate with the migration and reconciliation gates above.
+Risk history and acknowledgments belong in the paired database/uploads backup.
+Downgrading past the risk migration removes that evidence; restore a matching
+pre-upgrade backup with its matching application instead of discarding audit data.
+
 ## Paired backup and restore
 
 ```bash
@@ -75,8 +91,11 @@ uv run --locked python -m scripts.check_compose
 ```
 
 This creates random `claims-smoke-*` projects on loopback port 18047, checks real
-HTTP upload/results/review/failure/retry, restarts API/worker around a queued job,
-verifies every uploaded byte hash, restores a paired backup to another fresh
-project, and redeploys a retained image. It removes only its own disposable volumes.
+HTTP upload/results/review/failure/retry and a populated M1 migration, restarts
+API/worker around a queued job, checks risk levels and duplicate snapshots,
+verifies every uploaded byte hash, and restores a paired backup to another fresh
+project. The restore must preserve risk history, acknowledgment, reviewer audit,
+and an unassessed legacy result. It also redeploys a retained compatible image.
+It removes only its own disposable volumes.
 The running `claims-demo` project remains intact. Actual evidence is recorded in
 `docs/verification/compose.json`; fixture checks make no live-provider accuracy claim.

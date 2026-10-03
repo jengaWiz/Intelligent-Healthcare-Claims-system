@@ -3,12 +3,16 @@
   "live_provider_calls": 0,
   "checks": [
     "controlled_migrations_and_readiness",
+    "m1_existing_results_migrate_without_risk_backfill",
     "successful_fixture_extraction",
     "missing_amount_low_confidence_correction_audit",
     "safe_failure_fresh_retry",
     "api_worker_restart_queue_durability",
+    "risk_history_acknowledgment_survive_restart",
+    "risk_levels_and_scoped_exact_duplicate_signal",
     "paired_database_upload_restore_preserves_audit",
+    "paired_restore_preserves_risk_history_ack_and_legacy_data",
     "retained_image_redeploy_rollback_rehearsal"
   ],
-  "elapsed_seconds": 64.43
+  "elapsed_seconds": 65.95
 }
