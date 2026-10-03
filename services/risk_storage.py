@@ -127,3 +127,15 @@ def project_ack(record):
         reason=record.reason,
         created_at=value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC),
     )
+
+
+def current_ack(db, assessment):
+    if assessment is None:
+        return None
+    item = db.scalar(
+        select(RiskAcknowledgment)
+        .where(RiskAcknowledgment.assessment_id == assessment.assessment_id)
+        .order_by(RiskAcknowledgment.created_at.desc(), RiskAcknowledgment.acknowledgment_id.desc())
+        .limit(1)
+    )
+    return project_ack(item) if item else None

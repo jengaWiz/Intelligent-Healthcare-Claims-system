@@ -8,6 +8,7 @@ from models import Document, ExtractionResult, ProcessingJob, Review
 from schema.api import ClaimResponse, JobResponse
 from schema.claim_data import ClaimData
 from schema.validation_result import ValidationResult
+from services import risk_storage
 from services.claim_service import get_claim
 from services.risk_assessment_service import publish
 
@@ -51,6 +52,7 @@ def result_projection(db, claim_id):
         .limit(1)
     )
     reviews = history(db, claim_id)
+    risk = risk_storage.current(db, claim_id)
     snapshot = None
     if result:
         snapshot = {
@@ -84,6 +86,8 @@ def result_projection(db, claim_id):
         else None,
         "current": reviews[-1].after_data if reviews else snapshot,
         "reviews": [audit_projection(review) for review in reviews],
+        "risk": risk,
+        "risk_acknowledgment": risk_storage.current_ack(db, risk),
     }
 
 
