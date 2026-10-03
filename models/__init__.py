@@ -7,9 +7,12 @@ from models.extraction_result import ExtractionResult
 from models.job import ProcessingJob
 from models.job_request import JobRequest
 from models.review import Review
+from models.risk import RiskAcknowledgment, RiskAssessment
 from models.validation import ValidationOutcome
 
 __all__ = [
+    "RiskAssessment",
+    "RiskAcknowledgment",
     "BrowserSession",
     "JobRequest",
     "Claim",

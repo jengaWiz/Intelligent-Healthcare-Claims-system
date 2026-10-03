@@ -1,6 +1,14 @@
 import uuid
 
-from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, ForeignKey, String
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -11,6 +19,7 @@ from database.base import Base
 class Document(Base):
     __tablename__ = "documents"
     __table_args__ = (
+        UniqueConstraint("claim_id", "document_id", name="uq_document_claim_identity"),
         CheckConstraint(
             "document_state IN ('UPLOADED','QUEUED','PROCESSING','EXTRACTED','FAILED')",
             name="ck_document_state",

@@ -1,6 +1,6 @@
 # Explainable risk triage contract
 
-Status: policy and schemas implemented; assessment execution, persistence and HTTP
+Status: policy, schemas and persistence implemented; worker integration and HTTP
 routes are delivered by later tickets. See the [implementation plan](risk-triage-plan.md).
 
 Risk is priority for human investigation, not fraud probability, coverage,
@@ -51,8 +51,10 @@ contains field paths and static explanations, not raw input snapshots.
 
 Source claim version identifies the corrected data; context fingerprint identifies
 eligible peer context. A refresh does not increment document claim version.
-Identical claim version, extraction, policy and input/context identity reuses an
-assessment, including its original timestamps; changed context creates a new one.
+Identical current claim version, extraction, policy and input/context identity
+reuses the current assessment, including its original timestamps; changed context
+creates a new one. Returning to a historical context also creates a new revision,
+so an old acknowledgment never becomes current again merely through deduplication.
 Policy updates require a new version. Store history append-only. Original data
 and old acknowledgments remain intact after correction. Acknowledgment targets one
 current assessment; it does not change the level and does not transfer to a new
@@ -87,3 +89,18 @@ assessment. Repeat acknowledgment for the same assessment/actor/reason reuses it
 different reason returns 409 `risk_already_acknowledged` rather than rewriting it.
 Existing request/body limits and safe error logging apply. History is paginated,
 not embedded unbounded in results. See [access boundaries](access.md).
+
+## Storage and migration
+
+Migration `a1fb3ff0cf40` adds assessments/acknowledgments and composite source
+constraints without rewriting M1 claims. An assessment's claim, document and
+extraction must refer to the same source. Claim locking assigns monotonically
+increasing revisions; unique (claim_id, revision) enforces their identity.
+PostgreSQL triggers reject updates to both history tables. Deleting a source claim
+still cascades to its history for explicit retention/reset; immutability does not
+mean unlimited retention. Public service reads enforce ownership and paginate.
+
+Downgrading drops risk history and acknowledgments but retains M1 claims/documents.
+Use paired backup and a compatible binary for rollback; it is not a lossless risk
+rollback. No historical assessment is backfilled. The SQL immutability triggers
+are PostgreSQL features; SQLite test metadata is not a deployment substitute.

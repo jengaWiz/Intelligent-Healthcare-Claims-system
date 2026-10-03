@@ -15,6 +15,8 @@ def test_all_mappings_register_and_identifiers_match():
         "extraction_results",
         "validation_outcomes",
         "reviews",
+        "risk_assessments",
+        "risk_acknowledgments",
     }
     assert Document.__table__.c.document_id.primary_key
     assert not hasattr(Document, "id")
