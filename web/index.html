@@ -8,33 +8,76 @@
     <script src="/assets/app.js" defer></script>
   </head>
   <body>
+    <svg
+      class="icon-library"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <symbol id="icon-upload" viewBox="0 0 24 24">
+        <path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4" />
+      </symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="6" height="6" rx="1" />
+        <rect x="14" y="4" width="6" height="6" rx="1" />
+        <rect x="4" y="14" width="6" height="6" rx="1" />
+        <rect x="14" y="14" width="6" height="6" rx="1" />
+      </symbol>
+      <symbol id="icon-shield" viewBox="0 0 24 24">
+        <path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" />
+        <path d="m8 12 3 3 5-6" />
+      </symbol>
+      <symbol id="icon-file" viewBox="0 0 24 24">
+        <path d="M14 3H5v18h14V8l-5-5Zm0 0v5h5M8 12h8m-8 4h6" />
+      </symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24">
+        <path d="m5 12 4 4L19 6" />
+      </symbol>
+    </svg>
     <aside class="sidebar">
       <a class="brand" href="/demo"
-        ><span class="brand-icon">C</span> Claim Studio</a
+        ><span class="brand-icon"
+          ><svg class="icon" aria-hidden="true"><use href="#icon-shield" /></svg
+        ></span>
+        Claim Studio</a
       >
-      <p class="eyebrow">INTELLIGENT DOCUMENT REVIEW</p>
+      <p class="eyebrow">DOCUMENT INTELLIGENCE</p>
       <nav aria-label="Workspace">
-        <button id="nav-upload" class="nav active">＋ New document</button
-        ><button id="nav-queue" class="nav">☷ Review queue</button
-        ><button id="nav-risk" class="nav">⚑ Risk queue</button
-        ><button id="nav-recent" class="nav">◷ My documents</button>
+        <button id="nav-upload" class="nav active">
+          <svg class="icon" aria-hidden="true"><use href="#icon-upload" /></svg
+          ><span>New document</span></button
+        ><button id="nav-queue" class="nav">
+          <svg class="icon" aria-hidden="true"><use href="#icon-grid" /></svg
+          ><span>Review queue</span></button
+        ><button id="nav-risk" class="nav">
+          <svg class="icon" aria-hidden="true"><use href="#icon-shield" /></svg
+          ><span>Risk queue</span></button
+        ><button id="nav-recent" class="nav">
+          <svg class="icon" aria-hidden="true"><use href="#icon-file" /></svg
+          ><span>My documents</span>
+        </button>
       </nav>
       <div class="sidebar-note">
-        <span class="dot"></span> Synthetic data only
+        <span class="workspace-avatar">S</span>
+        <div>
+          <strong>Demo workspace</strong
+          ><span class="workspace-status"
+            ><span class="dot"></span>Synthetic data only</span
+          >
+        </div>
         <p>Extraction and human review. No coverage or payment decisions.</p>
       </div>
     </aside>
     <main>
       <header>
         <div>
-          <p class="eyebrow">LOCAL REVIEW WORKSPACE</p>
-          <h1>Document review, made clear.</h1>
+          <p class="eyebrow">YOUR WORKSPACE</p>
+          <h1 id="page-title">Document workspace</h1>
         </div>
         <button id="logout" class="quiet" hidden>Sign out</button>
       </header>
       <div id="message" role="status" aria-live="polite" hidden></div>
       <section id="login-panel" class="card narrow">
-        <span class="pill">PRIVATE WORKSPACE</span>
+        <span class="pill">DOCUMENT INTELLIGENCE</span>
         <h2>Welcome to Claim Studio</h2>
         <p>Sign in to create your own synthetic document review workspace.</p>
         <form id="login-form">
@@ -54,11 +97,11 @@
       </section>
       <div id="workspace" hidden>
         <section id="upload-panel" class="card">
-          <span class="pill">01 / UPLOAD</span>
-          <h2>Start with a synthetic document</h2>
+          <span class="pill">A CLEARER PATH FROM DOCUMENT TO DECISION</span>
+          <h2>A little less paperwork.<br />A lot more clarity.</h2>
           <p>
-            Upload a PDF, JPEG, or PNG. We’ll extract the fields, check their
-            quality, and flag anything that needs your attention.
+            Upload a synthetic claim to explore extraction, data checks, and
+            explainable risk. You stay in control of every review.
           </p>
           <div class="samples">
             <span>Try a labeled sample:</span>
@@ -120,137 +163,188 @@
         <section id="results-panel" hidden>
           <div class="result-header">
             <div>
-              <span class="pill">DOCUMENT RESULTS</span>
+              <span class="result-eyebrow"
+                ><span class="dot"></span>DOCUMENT INTELLIGENCE / RESULTS</span
+              >
               <h2 id="result-title">Processing your document</h2>
               <p class="muted" id="claim-reference"></p>
             </div>
-            <span id="state" class="badge"></span>
-          </div>
-          <div class="grid">
-            <section class="card">
-              <div class="card-heading">
-                <h3>Extracted fields</h3>
-                <span id="confidence" class="pill"></span>
-              </div>
-              <dl id="fields"></dl>
-              <p id="reasoning" class="muted"></p>
-              <button id="retry" class="primary" hidden>
-                Retry processing →
-              </button>
-            </section>
-            <section class="card">
-              <h3>Quality checks</h3>
-              <div id="issues"></div>
-              <p class="muted">
-                Confidence is a model-reported estimate, not a measured accuracy
-                rate. Human review accepts document data only.
-              </p>
-            </section>
-          </div>
-          <section id="risk-panel" class="card" aria-labelledby="risk-title">
-            <div class="card-heading">
-              <h3 id="risk-title">Risk review priority</h3>
-              <span
-                id="risk-level"
-                class="badge"
-                role="status"
-                aria-live="polite"
-                >Not assessed</span
+            <div class="result-status">
+              <span id="state" class="badge"></span
+              ><a id="review-shortcut" href="#review-panel" hidden
+                >Review document ↓</a
               >
             </div>
-            <p class="muted">
-              Illustrative rules prioritize human investigation. This is not a
-              fraud probability, coverage or payment decision.
-            </p>
-            <p id="risk-meta" class="muted"></p>
-            <div id="risk-signals"></div>
-            <p id="risk-acknowledgment"></p>
-            <button id="risk-refresh" class="quiet" type="button" hidden>
-              Refresh risk assessment
-            </button>
-            <form id="risk-ack-form" hidden>
-              <label for="risk-reason">Reason for risk acknowledgment</label>
-              <input id="risk-reason" maxlength="2000" required />
-              <button class="primary" type="submit">
-                Record risk acknowledgment
-              </button>
-            </form>
-            <button id="risk-history-load" class="quiet" type="button">
-              Show assessment history
-            </button>
-            <div id="risk-history"></div>
-            <div id="risk-history-navigation" class="actions" hidden>
-              <button id="risk-history-prev" class="quiet" type="button">
-                Previous assessments
-              </button>
-              <button id="risk-history-next" class="quiet" type="button">
-                Next assessments
-              </button>
+          </div>
+          <div class="result-columns">
+            <div class="result-main">
+              <section class="card fields-card">
+                <div class="card-heading">
+                  <div>
+                    <span class="section-label">01 / DOCUMENT DATA</span>
+                    <h3>Extracted fields</h3>
+                  </div>
+                  <span id="confidence" class="pill"></span>
+                </div>
+                <dl id="fields"></dl>
+                <p id="reasoning" class="muted"></p>
+                <button id="retry" class="primary" hidden>
+                  Retry processing →
+                </button>
+              </section>
+              <section class="card">
+                <div class="card-heading">
+                  <div>
+                    <span class="section-label">02 / VALIDATION</span>
+                    <h3>Quality checks</h3>
+                  </div>
+                  <span id="quality-count" class="pill"></span>
+                </div>
+                <div id="issues"></div>
+                <p class="muted">
+                  Confidence is a model-reported estimate, not a measured
+                  accuracy rate. Human review accepts document data only.
+                </p>
+              </section>
+              <section class="card history-card">
+                <div class="card-heading">
+                  <h3>Review history</h3>
+                  <span class="pill neutral">AUDIT TRAIL</span>
+                </div>
+                <div id="history"></div>
+              </section>
             </div>
-          </section>
-          <section id="review-panel" class="card" hidden>
-            <span class="pill">02 / HUMAN REVIEW</span>
-            <h3>Resolve this document</h3>
-            <form id="review-form">
-              <div class="form-grid">
-                <div>
-                  <label for="decision">Review decision</label
-                  ><select id="decision">
-                    <option value="approve">Accept extracted data</option>
-                    <option value="correct">Correct and accept data</option>
-                    <option value="reject">Reject document data</option>
-                  </select>
+            <div class="result-side">
+              <section
+                id="risk-panel"
+                class="card"
+                aria-labelledby="risk-title"
+              >
+                <div class="card-heading">
+                  <div>
+                    <span class="section-label">03 / INVESTIGATION</span>
+                    <h3 id="risk-title">Risk review priority</h3>
+                  </div>
+                  <span
+                    id="risk-level"
+                    class="badge"
+                    role="status"
+                    aria-live="polite"
+                    >Not assessed</span
+                  >
                 </div>
-                <div>
-                  <label for="reason">Reason for your decision</label
-                  ><input id="reason" maxlength="2000" required />
+                <p class="risk-intro">
+                  Illustrative rules for human review, not a fraud probability.
+                </p>
+                <p id="risk-summary" class="risk-summary"></p>
+                <div id="risk-signals"></div>
+                <p id="risk-acknowledgment"></p>
+                <div class="risk-toolbar">
+                  <button id="risk-refresh" class="quiet" type="button" hidden>
+                    Refresh risk assessment
+                  </button>
                 </div>
-              </div>
-              <fieldset id="corrections" hidden>
-                <legend>Corrected document fields</legend>
-                <div class="form-grid">
-                  <div>
-                    <label for="patient-name">Patient name</label
-                    ><input id="patient-name" maxlength="200" />
-                  </div>
-                  <div>
-                    <label for="patient-dob">Date of birth</label
-                    ><input id="patient-dob" type="date" />
-                  </div>
-                  <div>
-                    <label for="provider-name">Provider</label
-                    ><input id="provider-name" maxlength="200" />
-                  </div>
-                  <div>
-                    <label for="service-date">Service date</label
-                    ><input id="service-date" type="date" />
-                  </div>
-                  <div>
-                    <label for="total-amount">Billed amount (USD)</label
-                    ><input
-                      id="total-amount"
-                      type="number"
-                      min="0.01"
-                      max="1000000000"
-                      step="0.01"
-                    />
-                  </div>
+                <form id="risk-ack-form" hidden>
+                  <label for="risk-reason"
+                    >Reason for risk acknowledgment</label
+                  >
+                  <input id="risk-reason" maxlength="2000" required />
+                  <button class="primary" type="submit">
+                    Record risk acknowledgment
+                  </button>
+                </form>
+                <button id="risk-history-load" class="quiet" type="button">
+                  Show assessment history
+                </button>
+                <div id="risk-history"></div>
+                <details class="assessment-details">
+                  <summary>Policy &amp; assessment details</summary>
+                  <p id="risk-meta" class="muted"></p>
+                  <p id="risk-ack-meta" class="muted" hidden></p>
+                  <p class="muted">
+                    Illustrative rules, not a fraud probability, coverage or
+                    payment decision. Data approval does not clear risk.
+                  </p>
+                </details>
+                <div id="risk-history-navigation" class="actions" hidden>
+                  <button id="risk-history-prev" class="quiet" type="button">
+                    Previous assessments
+                  </button>
+                  <button id="risk-history-next" class="quiet" type="button">
+                    Next assessments
+                  </button>
                 </div>
-              </fieldset>
-              <button type="submit" class="primary">
-                Save review decision →
-              </button>
-            </form>
-          </section>
-          <section class="card">
-            <h3>Review history</h3>
-            <div id="history"></div>
-          </section>
+              </section>
+              <section id="review-panel" class="card" hidden>
+                <span class="pill">04 / YOUR DECISION</span>
+                <h3>Complete the data review</h3>
+                <p class="muted">
+                  Accept the data, make a correction, or reject it. Your reason
+                  is retained in the audit trail.
+                </p>
+                <form id="review-form">
+                  <div class="form-grid">
+                    <div>
+                      <label for="decision">Review decision</label
+                      ><select id="decision">
+                        <option value="approve">Accept extracted data</option>
+                        <option value="correct">Correct and accept data</option>
+                        <option value="reject">Reject document data</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="reason">Reason for your decision</label
+                      ><input id="reason" maxlength="2000" required />
+                    </div>
+                  </div>
+                  <fieldset id="corrections" hidden>
+                    <legend>Corrected document fields</legend>
+                    <div class="form-grid">
+                      <div>
+                        <label for="patient-name">Patient name</label
+                        ><input id="patient-name" maxlength="200" />
+                      </div>
+                      <div>
+                        <label for="patient-dob">Date of birth</label
+                        ><input id="patient-dob" type="date" />
+                      </div>
+                      <div>
+                        <label for="provider-name">Provider</label
+                        ><input id="provider-name" maxlength="200" />
+                      </div>
+                      <div>
+                        <label for="service-date">Service date</label
+                        ><input id="service-date" type="date" />
+                      </div>
+                      <div>
+                        <label for="total-amount">Billed amount (USD)</label
+                        ><input
+                          id="total-amount"
+                          type="number"
+                          min="0.01"
+                          max="1000000000"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+                  </fieldset>
+                  <button type="submit" class="primary">
+                    Save review decision →
+                  </button>
+                </form>
+              </section>
+            </div>
+          </div>
         </section>
       </div>
       <footer>
-        Claim Studio · End-to-end synthetic claim demo · Original extraction
-        evidence is retained.
+        <span
+          >Claim Studio <span class="footer-divider">/</span> Document
+          intelligence</span
+        ><span
+          ><span class="dot"></span>Synthetic demo · Original evidence
+          retained</span
+        >
       </footer>
     </main>
   </body>
