@@ -35,12 +35,9 @@
     </svg>
     <aside class="sidebar">
       <a class="brand" href="/demo"
-        ><span class="brand-icon"
-          ><svg class="icon" aria-hidden="true"><use href="#icon-shield" /></svg
-        ></span>
-        Claim Studio</a
+        ><span class="brand-icon" aria-hidden="true">cs</span>Claim Studio</a
       >
-      <p class="eyebrow">DOCUMENT INTELLIGENCE</p>
+      <p class="eyebrow">Healthcare claims</p>
       <nav aria-label="Workspace">
         <button id="nav-upload" class="nav active">
           <svg class="icon" aria-hidden="true"><use href="#icon-upload" /></svg
@@ -57,27 +54,26 @@
         </button>
       </nav>
       <div class="sidebar-note">
-        <span class="workspace-avatar">S</span>
-        <div>
-          <strong>Demo workspace</strong
-          ><span class="workspace-status"
-            ><span class="dot"></span>Synthetic data only</span
-          >
-        </div>
-        <p>Extraction and human review. No coverage or payment decisions.</p>
+        <span class="workspace-status"
+          ><span class="dot"></span>Synthetic workspace</span
+        >
+        <p>Local review demo<br />No coverage or payment decisions.</p>
       </div>
     </aside>
     <main>
       <header>
-        <div>
-          <p class="eyebrow">YOUR WORKSPACE</p>
-          <h1 id="page-title">Document workspace</h1>
+        <div class="location-bar">
+          <span>Workspace</span><span aria-hidden="true">/</span>
+          <h1 id="page-title">New claim</h1>
         </div>
-        <button id="logout" class="quiet" hidden>Sign out</button>
+        <div class="header-actions">
+          <span class="environment">Local demo</span
+          ><button id="logout" class="quiet" hidden>Sign out</button>
+        </div>
       </header>
       <div id="message" role="status" aria-live="polite" hidden></div>
       <section id="login-panel" class="card narrow">
-        <span class="pill">DOCUMENT INTELLIGENCE</span>
+        <span class="section-label">Your review workspace</span>
         <h2>Welcome to Claim Studio</h2>
         <p>Sign in to create your own synthetic document review workspace.</p>
         <form id="login-form">
@@ -97,42 +93,154 @@
       </section>
       <div id="workspace" hidden>
         <section id="upload-panel" class="card">
-          <span class="pill">A CLEARER PATH FROM DOCUMENT TO DECISION</span>
-          <h2>A little less paperwork.<br />A lot more clarity.</h2>
-          <p>
-            Upload a synthetic claim to explore extraction, data checks, and
-            explainable risk. You stay in control of every review.
-          </p>
-          <div class="samples">
-            <span>Try a labeled sample:</span>
-            <a href="/samples/valid.pdf" download>Complete claim ↗</a>
-            <a href="/samples/review.pdf" download>Needs review ↗</a>
-            <a href="/samples/failure.pdf" download>Failure scenario ↗</a>
-            <a href="/samples/medium.pdf" download>Medium risk ↗</a>
-            <a href="/samples/high.pdf" download>High risk ↗</a>
+          <div class="entry-heading">
+            <span class="section-label">Claim intake</span>
+            <h2>New claim</h2>
+            <p>Upload a document or start with a synthetic example.</p>
           </div>
-          <p class="muted">
-            Upload the complete claim twice to see an exact-document duplicate
-            signal.
-          </p>
-          <form id="upload-form">
-            <label for="file" class="dropzone"
-              ><span class="upload-icon">↥</span
-              ><strong>Select a synthetic document</strong
-              ><span
-                >PDF, JPEG, or PNG · max
-                <span id="upload-limit">10 MiB</span></span
-              ><input
-                id="file"
-                type="file"
-                accept="application/pdf,image/jpeg,image/png"
-                required /></label
-            ><button type="submit" class="primary">Upload & process →</button>
-          </form>
-          <p class="muted" id="processing-mode"></p>
+          <div class="intake-columns">
+            <div>
+              <form id="upload-form">
+                <label for="file" class="dropzone"
+                  ><svg class="icon" aria-hidden="true">
+                    <use href="#icon-upload" /></svg
+                  ><strong>Choose a claim document</strong
+                  ><span
+                    >PDF, JPEG, or PNG · max
+                    <span id="upload-limit">10 MiB</span></span
+                  ><input
+                    id="file"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png"
+                    required
+                /></label>
+                <button type="submit" class="primary">
+                  Upload &amp; process
+                </button>
+              </form>
+              <p class="muted" id="processing-mode"></p>
+            </div>
+            <div class="samples">
+              <h3>Try a sample</h3>
+              <p class="muted">Synthetic documents with known outcomes.</p>
+              <div class="sample-row">
+                <div>
+                  <strong>Complete claim</strong
+                  ><span>Ready · $42.50 · low risk</span>
+                </div>
+                <div>
+                  <button
+                    class="sample-start quiet"
+                    type="button"
+                    data-sample="valid"
+                    aria-label="Use complete claim sample"
+                    hidden
+                  >
+                    Try</button
+                  ><a
+                    href="/samples/valid.pdf"
+                    download
+                    aria-label="Download complete claim sample"
+                    >↓</a
+                  >
+                </div>
+              </div>
+              <div class="sample-row">
+                <div>
+                  <strong>Missing amount</strong
+                  ><span>Correct the data and reassess</span>
+                </div>
+                <div>
+                  <button
+                    class="sample-start quiet"
+                    type="button"
+                    data-sample="review"
+                    aria-label="Use missing amount sample"
+                    hidden
+                  >
+                    Try</button
+                  ><a
+                    href="/samples/review.pdf"
+                    download
+                    aria-label="Download missing amount sample"
+                    >↓</a
+                  >
+                </div>
+              </div>
+              <div class="sample-row">
+                <div>
+                  <strong>Medium risk</strong><span>$10,001 · amount rule</span>
+                </div>
+                <div>
+                  <button
+                    class="sample-start quiet"
+                    type="button"
+                    data-sample="medium"
+                    aria-label="Use medium risk sample"
+                    hidden
+                  >
+                    Try</button
+                  ><a
+                    href="/samples/medium.pdf"
+                    download
+                    aria-label="Download medium risk sample"
+                    >↓</a
+                  >
+                </div>
+              </div>
+              <div class="sample-row">
+                <div>
+                  <strong>High risk</strong
+                  ><span>$100,001 · investigation required</span>
+                </div>
+                <div>
+                  <button
+                    class="sample-start quiet"
+                    type="button"
+                    data-sample="high"
+                    aria-label="Use high risk sample"
+                    hidden
+                  >
+                    Try</button
+                  ><a
+                    href="/samples/high.pdf"
+                    download
+                    aria-label="Download high risk sample"
+                    >↓</a
+                  >
+                </div>
+              </div>
+              <div class="sample-row">
+                <div>
+                  <strong>Provider failure</strong
+                  ><span>Inspect failure and retry</span>
+                </div>
+                <div>
+                  <button
+                    class="sample-start quiet"
+                    type="button"
+                    data-sample="failure"
+                    aria-label="Use provider failure sample"
+                    hidden
+                  >
+                    Try</button
+                  ><a
+                    href="/samples/failure.pdf"
+                    download
+                    aria-label="Download provider failure sample"
+                    >↓</a
+                  >
+                </div>
+              </div>
+              <p class="muted">
+                Open the complete claim twice to explore exact-document
+                duplicates.
+              </p>
+            </div>
+          </div>
         </section>
         <section id="list-panel" class="card" hidden>
-          <span class="pill">WORKSPACE</span>
+          <span class="section-label">Claims</span>
           <h2 id="list-title">Your documents</h2>
           <div id="risk-filters" class="form-grid" hidden>
             <div>
@@ -163,9 +271,7 @@
         <section id="results-panel" hidden>
           <div class="result-header">
             <div>
-              <span class="result-eyebrow"
-                ><span class="dot"></span>DOCUMENT INTELLIGENCE / RESULTS</span
-              >
+              <span class="result-eyebrow">Claim review</span>
               <h2 id="result-title">Processing your document</h2>
               <p class="muted" id="claim-reference"></p>
             </div>
@@ -181,21 +287,41 @@
               <section class="card fields-card">
                 <div class="card-heading">
                   <div>
-                    <span class="section-label">01 / DOCUMENT DATA</span>
-                    <h3>Extracted fields</h3>
+                    <span class="section-label">Claim record</span>
+                    <h3>Document details</h3>
                   </div>
                   <span id="confidence" class="pill"></span>
                 </div>
-                <dl id="fields"></dl>
+                <div class="source-line">
+                  <svg class="icon" aria-hidden="true">
+                    <use href="#icon-file" /></svg
+                  ><span id="source-file">Stored document</span
+                  ><span id="source-meta"></span>
+                </div>
+                <div id="fields">
+                  <div class="record-summary">
+                    <div>
+                      <span class="record-label">Patient</span>
+                      <h4 id="record-patient">Awaiting extraction</h4>
+                      <p id="record-provider"></p>
+                    </div>
+                    <div class="record-amount">
+                      <span id="record-currency" class="record-label"
+                        >Billed amount</span
+                      ><strong id="record-total">—</strong>
+                    </div>
+                  </div>
+                  <dl id="field-details"></dl>
+                </div>
                 <p id="reasoning" class="muted"></p>
                 <button id="retry" class="primary" hidden>
-                  Retry processing →
+                  Retry processing
                 </button>
               </section>
               <section class="card">
                 <div class="card-heading">
                   <div>
-                    <span class="section-label">02 / VALIDATION</span>
+                    <span class="section-label">Validation</span>
                     <h3>Quality checks</h3>
                   </div>
                   <span id="quality-count" class="pill"></span>
@@ -209,12 +335,69 @@
               <section class="card history-card">
                 <div class="card-heading">
                   <h3>Review history</h3>
-                  <span class="pill neutral">AUDIT TRAIL</span>
+                  <span class="pill neutral">Original evidence retained</span>
                 </div>
                 <div id="history"></div>
               </section>
             </div>
             <div class="result-side">
+              <section id="review-panel" class="card" hidden>
+                <span class="section-label">Data decision</span>
+                <h3>Review document data</h3>
+                <p class="muted">
+                  Record a decision and the evidence behind it.
+                </p>
+                <form id="review-form">
+                  <div class="form-grid">
+                    <div>
+                      <label for="decision">Review decision</label
+                      ><select id="decision">
+                        <option value="approve">Accept extracted data</option>
+                        <option value="correct">Correct and accept data</option>
+                        <option value="reject">Reject document data</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label for="reason">Reason for your decision</label
+                      ><input id="reason" maxlength="2000" required />
+                    </div>
+                  </div>
+                  <fieldset id="corrections" hidden>
+                    <legend>Corrected document fields</legend>
+                    <div class="form-grid">
+                      <div>
+                        <label for="patient-name">Patient name</label
+                        ><input id="patient-name" maxlength="200" />
+                      </div>
+                      <div>
+                        <label for="patient-dob">Date of birth</label
+                        ><input id="patient-dob" type="date" />
+                      </div>
+                      <div>
+                        <label for="provider-name">Provider</label
+                        ><input id="provider-name" maxlength="200" />
+                      </div>
+                      <div>
+                        <label for="service-date">Service date</label
+                        ><input id="service-date" type="date" />
+                      </div>
+                      <div>
+                        <label for="total-amount">Billed amount (USD)</label
+                        ><input
+                          id="total-amount"
+                          type="number"
+                          min="0.01"
+                          max="1000000000"
+                          step="0.01"
+                        />
+                      </div>
+                    </div>
+                  </fieldset>
+                  <button type="submit" class="primary">
+                    Save review decision
+                  </button>
+                </form>
+              </section>
               <section
                 id="risk-panel"
                 class="card"
@@ -222,7 +405,7 @@
               >
                 <div class="card-heading">
                   <div>
-                    <span class="section-label">03 / INVESTIGATION</span>
+                    <span class="section-label">Investigation</span>
                     <h3 id="risk-title">Risk review priority</h3>
                   </div>
                   <span
@@ -274,64 +457,6 @@
                     Next assessments
                   </button>
                 </div>
-              </section>
-              <section id="review-panel" class="card" hidden>
-                <span class="pill">04 / YOUR DECISION</span>
-                <h3>Complete the data review</h3>
-                <p class="muted">
-                  Accept the data, make a correction, or reject it. Your reason
-                  is retained in the audit trail.
-                </p>
-                <form id="review-form">
-                  <div class="form-grid">
-                    <div>
-                      <label for="decision">Review decision</label
-                      ><select id="decision">
-                        <option value="approve">Accept extracted data</option>
-                        <option value="correct">Correct and accept data</option>
-                        <option value="reject">Reject document data</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label for="reason">Reason for your decision</label
-                      ><input id="reason" maxlength="2000" required />
-                    </div>
-                  </div>
-                  <fieldset id="corrections" hidden>
-                    <legend>Corrected document fields</legend>
-                    <div class="form-grid">
-                      <div>
-                        <label for="patient-name">Patient name</label
-                        ><input id="patient-name" maxlength="200" />
-                      </div>
-                      <div>
-                        <label for="patient-dob">Date of birth</label
-                        ><input id="patient-dob" type="date" />
-                      </div>
-                      <div>
-                        <label for="provider-name">Provider</label
-                        ><input id="provider-name" maxlength="200" />
-                      </div>
-                      <div>
-                        <label for="service-date">Service date</label
-                        ><input id="service-date" type="date" />
-                      </div>
-                      <div>
-                        <label for="total-amount">Billed amount (USD)</label
-                        ><input
-                          id="total-amount"
-                          type="number"
-                          min="0.01"
-                          max="1000000000"
-                          step="0.01"
-                        />
-                      </div>
-                    </div>
-                  </fieldset>
-                  <button type="submit" class="primary">
-                    Save review decision →
-                  </button>
-                </form>
               </section>
             </div>
           </div>
