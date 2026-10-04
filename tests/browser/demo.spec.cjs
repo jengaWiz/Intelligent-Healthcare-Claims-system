@@ -25,7 +25,7 @@ test('authenticated upload, correction, audit, rejection and safe failure retry'
   await expect(page.getByRole('heading', {name: 'Welcome to Claim Studio'})).toBeVisible();
   await page.getByLabel('Demo password').fill(process.env.BROWSER_PASSWORD || 'browser-synthetic-only');
   await page.getByRole('button', {name: 'Open workspace'}).click();
-  await expect(page.getByRole('heading', {name: /A little less paperwork/})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'New claim', exact: true})).toBeVisible();
   await upload(page, 'valid');
   await expect(page.locator('#state')).toHaveText('READY', {timeout: 20000});
   await expect(page.locator('#risk-level')).toHaveText('LOW');
@@ -50,6 +50,7 @@ test('authenticated upload, correction, audit, rejection and safe failure retry'
   await expect(page.locator('#history')).toContainText('CORRECT');
   await page.locator('#history summary').click();
   await expect(page.locator('#history pre')).toContainText('48.75');
+  await page.locator('#history summary').click();
   await screenshotWorkspace(page, 'review');
   const stranger = await browser.newContext();
   const response = await stranger.request.get('/claims');
@@ -167,9 +168,11 @@ test('mobile reviewer can investigate, acknowledge and approve without horizonta
   await page.goto('/demo');
   await page.getByLabel('Demo password').fill(process.env.BROWSER_PASSWORD || 'browser-synthetic-only');
   await page.getByRole('button', {name: 'Open workspace'}).click();
-  await upload(page, 'high');
+  await page.getByRole('button', {name: 'Use high risk sample', exact: true}).click();
   await expect(page.locator('#risk-level')).toHaveText('HIGH', {timeout: 20000});
   await expect(page.locator('#fields')).toContainText('$100,001.00');
+  await expect(page.locator('#source-file')).toHaveText('high.pdf');
+  await expect(page.locator('#record-patient')).toHaveText('Synthetic Example');
   await page.getByRole('link', {name: 'Review document'}).click();
   await expect(page.locator('#review-panel')).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -189,4 +192,39 @@ test('mobile reviewer can investigate, acknowledge and approve without horizonta
   await expect(page.locator('#risk-meta')).toBeVisible();
   await page.getByRole('button', {name: 'Sign out'}).click();
   await expect(page.getByRole('heading', {name: 'Welcome to Claim Studio'})).toBeVisible();
+});
+
+test('switching cases ignores delayed document metadata from the previous selection', async ({page}) => {
+  await page.goto('/demo');
+  await page.getByLabel('Demo password').fill(process.env.BROWSER_PASSWORD || 'browser-synthetic-only');
+  await page.getByRole('button', {name: 'Open workspace'}).click();
+  await page.getByRole('button', {name: 'Use complete claim sample', exact: true}).click();
+  await expect(page.locator('#state')).toHaveText('READY', {timeout: 20000});
+  const firstId = (await page.locator('#claim-reference').textContent()).match(/[0-9a-f-]{36}/)[0];
+  const first = await (await page.request.get(`/claims/${firstId}/results`)).json();
+  await page.getByRole('button', {name: 'New document'}).click();
+  await page.getByRole('button', {name: 'Use medium risk sample', exact: true}).click();
+  await expect(page.locator('#risk-level')).toHaveText('MEDIUM', {timeout: 20000});
+  const secondId = (await page.locator('#claim-reference').textContent()).match(/[0-9a-f-]{36}/)[0];
+  let releaseMetadata, metadataStarted;
+  const gate = new Promise(resolve => { releaseMetadata = resolve; });
+  const started = new Promise(resolve => { metadataStarted = resolve; });
+  const sourceURL = `**/documents/${first.job.document_id}`;
+  await page.route(sourceURL, async route => {
+    metadataStarted();
+    await gate;
+    await route.continue();
+  });
+  await page.getByRole('button', {name: 'My documents'}).click();
+  await page.locator('.claim-row').filter({hasText: firstId}).getByRole('button', {name: 'Open'}).click();
+  await started;
+  await page.getByRole('button', {name: 'My documents'}).click();
+  await page.locator('.claim-row').filter({hasText: secondId}).getByRole('button', {name: 'Open'}).click();
+  await expect(page.locator('#source-file')).toHaveText('medium.pdf');
+  const delayedResponse = page.waitForResponse(response => response.url().endsWith(`/documents/${first.job.document_id}`));
+  releaseMetadata();
+  await delayedResponse;
+  await expect(page.locator('#claim-reference')).toContainText(secondId);
+  await expect(page.locator('#source-file')).toHaveText('medium.pdf');
+  await expect(page.locator('#record-total')).toHaveText('$10,001.00');
 });

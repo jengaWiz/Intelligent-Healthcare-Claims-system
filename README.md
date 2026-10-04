@@ -92,10 +92,10 @@ flowchart LR
     QUEUE --> ACK[Reasoned acknowledgment]
     ENGINE -.-> HISTORY[Immutable assessment history]
     ACK -.-> HISTORY
-    classDef input fill:#f0f6f3,stroke:#b1cfc1,color:#203c3a
-    classDef engine fill:#153e38,stroke:#153e38,color:#ffffff
+    classDef input fill:#f7f7f2,stroke:#d8dccf,color:#252722
+    classDef engine fill:#2b3028,stroke:#2b3028,color:#ffffff
     classDef result fill:#fff1d9,stroke:#d0a152,color:#74562a
-    classDef action fill:#e6f5eb,stroke:#69a98c,color:#216f4e
+    classDef action fill:#edf4e9,stroke:#a2b38d,color:#3d754e
     class DATA,CHANGE input
     class ENGINE engine
     class RESULT result
@@ -124,7 +124,8 @@ docker compose --env-file .env.docker up -d --wait
 ```
 
 Open **http://127.0.0.1:8000/demo**. Sign in using `DEMO_PASSWORD` from the private,
-gitignored `.env.docker` file. Download a labeled sample from the upload screen:
+gitignored `.env.docker` file. Select **Try** beside a labeled sample to open it
+in one click, or download it and use the file picker:
 
 | Sample | Fixture outcome / risk | Try this |
 | --- | --- | --- |
@@ -224,7 +225,7 @@ worker-process crash/restart, Chromium upload/review flows, and full Docker
 persistence plus paired database/upload restore. CI runs setup, lint/docs/unit,
 PostgreSQL/migrations, browser, and container checks. Evidence and release details
 are in [verification](docs/verification/) and [risk release notes](docs/releases/risk-v1.md).
-The current project verification includes **303 Python tests**, **four Chromium workflows**, and
+The current project verification includes **303 Python tests**, **five Chromium workflows**, and
 **11 Docker migration/restart/restore checks**. Six declared synthetic scenarios
 match the policy; this measures rule conformance, not predictive fraud accuracy.
 
