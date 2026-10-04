@@ -12,6 +12,7 @@ let listRequestId = 0;
 let riskAssessmentId = null,
   riskClaimId = null,
   riskHistoryOffset = 0;
+let documentMetadata = null;
 const terminal = new Set(["READY", "REVIEW_REQUIRED", "FAILED", "REJECTED"]);
 function message(text, error = false) {
   $("message").textContent = text;
@@ -50,6 +51,7 @@ function signedOut() {
   csrf = null;
   claimId = null;
   documentId = null;
+  documentMetadata = null;
   riskAssessmentId = null;
   riskClaimId = null;
   $("login-panel").hidden = false;
@@ -70,14 +72,14 @@ function show(panel) {
   const changedPanel = $(`${panel}-panel`).hidden;
   $("page-title").textContent =
     panel === "results"
-      ? "Document overview"
+      ? "Claim review"
       : panel === "list"
         ? {
             recent: "My documents",
             queue: "Data review queue",
             risk: "Risk investigation",
           }[listMode]
-        : "Document workspace";
+        : "New claim";
   for (const name of ["upload", "list", "results"])
     $(`${name}-panel`).hidden = name !== panel;
   for (const name of ["upload", "queue", "recent", "risk"]) {
@@ -104,7 +106,7 @@ async function action(button, operation) {
   button.disabled = true;
   $("logout").disabled = true;
   const mutations = document.querySelectorAll(
-    "#risk-refresh, #risk-ack-form button, #review-form button, #upload-form button, #retry",
+    "#risk-refresh, #risk-ack-form button, #review-form button, #upload-form button, #retry, .sample-start",
   );
   for (const control of mutations) control.disabled = true;
   message("");
@@ -243,23 +245,41 @@ $("list-next").onclick = () => {
 };
 $("upload-form").addEventListener("submit", (event) => {
   event.preventDefault();
-  action(event.submitter, async () => {
-    stopPolling();
-    const claim = await api("/claims", {
-      method: "POST",
-      body: JSON.stringify({ source_system: "synthetic-demo-ui" }),
-    });
-    claimId = claim.claim_id;
-    const form = new FormData();
-    form.append("file", $("file").files[0]);
-    const document = await api(`/claims/${claimId}/documents`, {
-      method: "POST",
-      body: form,
-    });
-    documentId = document.document_id;
-    await enqueue();
-  });
+  action(event.submitter, () => processFile($("file").files[0]));
 });
+async function processFile(file) {
+  stopPolling();
+  const claim = await api("/claims", {
+    method: "POST",
+    body: JSON.stringify({ source_system: "synthetic-demo-ui" }),
+  });
+  claimId = claim.claim_id;
+  const form = new FormData();
+  form.append("file", file);
+  const document = await api(`/claims/${claimId}/documents`, {
+    method: "POST",
+    body: form,
+  });
+  documentId = document.document_id;
+  documentMetadata = document;
+  await enqueue();
+}
+for (const button of document.querySelectorAll(".sample-start")) {
+  button.onclick = () =>
+    action(button, async () => {
+      const name = button.dataset.sample;
+      const response = await fetch(`/samples/${name}.pdf`, {
+        credentials: "same-origin",
+      });
+      if (!response.ok)
+        throw new Error("The sample could not be loaded. Please try again.");
+      await processFile(
+        new File([await response.blob()], `${name}.pdf`, {
+          type: "application/pdf",
+        }),
+      );
+    });
+}
 async function enqueue() {
   await api(`/documents/${documentId}/extract`, {
     method: "POST",
@@ -284,11 +304,11 @@ async function refresh() {
   $("claim-reference").title = `Claim ${claimId} · version ${version}`;
   $("result-title").textContent =
     state === "PROCESSING"
-      ? "Extraction in progress"
+      ? "Processing document"
       : state === "FAILED"
         ? "Processing needs another attempt"
         : state === "REVIEW_REQUIRED"
-          ? "A few things need your review"
+          ? "Data review required"
           : state === "READY"
             ? "Document data is ready"
             : state === "REJECTED"
@@ -305,22 +325,26 @@ async function refresh() {
   $("retry").hidden = state !== "FAILED" || !documentId;
   $("review-panel").hidden = state !== "REVIEW_REQUIRED";
   $("review-shortcut").hidden = state !== "REVIEW_REQUIRED";
-  $("fields").replaceChildren();
+  $("field-details").replaceChildren();
   $("issues").replaceChildren();
   $("quality-count").textContent = result.current
-    ? `${result.current.validation.issues.length} ${result.current.validation.issues.length === 1 ? "ISSUE" : "ISSUES"}`
+    ? `${result.current.validation.issues.length} ${result.current.validation.issues.length === 1 ? "issue" : "issues"}`
     : "PENDING";
   if (result.current) {
     const data = result.current.data;
+    $("record-patient").textContent =
+      data.patient.full_name || "Patient not identified";
+    $("record-provider").textContent = data.provider.name
+      ? `Provider: ${data.provider.name}`
+      : "Provider not identified";
+    $("record-currency").textContent =
+      `Billed amount (${data.billing.currency})`;
+    $("record-total").textContent =
+      formatAmount(data.billing.total_amount, data.billing.currency) ||
+      "Not extracted";
     const values = [
-      ["Patient", data.patient.full_name],
       ["Date of birth", data.patient.date_of_birth],
-      ["Provider", data.provider.name],
       ["Service date", data.service.service_date],
-      [
-        `Billed amount (${data.billing.currency})`,
-        formatAmount(data.billing.total_amount, data.billing.currency),
-      ],
     ];
     for (const [label, value] of values) {
       const row = node("div", "");
@@ -328,7 +352,7 @@ async function refresh() {
         node("dt", label),
         node("dd", value === null ? "Missing" : String(value)),
       );
-      $("fields").append(row);
+      $("field-details").append(row);
     }
     for (const issue of result.current.validation.issues) {
       const item = node("div", "", `issue ${issue.severity}`);
@@ -353,7 +377,11 @@ async function refresh() {
     $("service-date").value = data.service.service_date || "";
     $("total-amount").value = data.billing.total_amount || "";
   } else {
-    $("fields").append(
+    $("record-patient").textContent = "Awaiting extraction";
+    $("record-provider").textContent = "";
+    $("record-total").textContent = "—";
+    $("record-currency").textContent = "Billed amount";
+    $("field-details").append(
       node("p", "Fields will appear after extraction completes."),
     );
     $("issues").append(
@@ -383,6 +411,8 @@ async function refresh() {
   }
   if (!result.reviews.length)
     $("history").append(node("p", "No human review decisions yet.", "muted"));
+  await renderDocumentMetadata(selected, documentId);
+  if (selected !== claimId || !csrf) return;
   if (!terminal.has(state) && result.job)
     timer = setTimeout(
       () =>
@@ -392,6 +422,28 @@ async function refresh() {
         }),
       2000,
     );
+}
+async function renderDocumentMetadata(selectedClaim, selectedDocument) {
+  if (documentMetadata?.document_id !== selectedDocument) {
+    $("source-file").textContent = "Stored document";
+    $("source-meta").textContent = "";
+    if (!selectedDocument) return;
+    try {
+      const metadata = await api(`/documents/${selectedDocument}`);
+      if (selectedClaim !== claimId || selectedDocument !== documentId || !csrf)
+        return;
+      documentMetadata = metadata;
+    } catch {
+      if (selectedClaim === claimId && selectedDocument === documentId)
+        $("source-meta").textContent = "File details unavailable";
+      return;
+    }
+  }
+  if (documentMetadata) {
+    $("source-file").textContent = documentMetadata.file_name;
+    $("source-meta").textContent =
+      `${documentMetadata.mime_type.replace("application/", "").replace("image/", "").toUpperCase()} · ${(documentMetadata.byte_size / 1024).toFixed(1)} KB`;
+  }
 }
 function formatAmount(amount, currency) {
   if (amount === null) return null;
@@ -582,8 +634,10 @@ window.addEventListener("pagehide", stopPolling);
     $("upload-limit").textContent =
       `${Math.round(config.max_upload_bytes / 1048576)} MiB`;
     $("processing-mode").textContent = config.synthetic_mode
-      ? "Fixture mode: labeled samples use deterministic synthetic results. Azure/LLM accuracy is not evaluated in this mode."
+      ? "Synthetic mode. Only the versioned samples are supported; no OCR or LLM calls are made."
       : "Live mode: processing uses the server’s configured OCR and language model.";
+    for (const button of document.querySelectorAll(".sample-start"))
+      button.hidden = !config.synthetic_mode;
     const session = await api("/auth/session");
     csrf = session.csrf_token;
     signedIn();
